@@ -520,8 +520,11 @@ public class HelloApplication extends Application {
         tagButtons = new FlowPane();
         tagButtons.setMaxHeight(10000);
 
+
         tagLayout = new HBox();
         tagPage = new VBox();
+
+
 
         Button swapleftlayoutbutton2 = new Button("swap gui");
         swapleftlayoutbutton2.setOnAction(actionEvent -> {
@@ -560,6 +563,17 @@ public class HelloApplication extends Application {
         newTagButton = new Button("add new");
 
         tagmodeButton = new Button("mode: apply tag");
+        Button moveTagButtons = new Button("Move to folder");
+        Button addAll = new Button("add All Matching query");
+        addAll.setOnAction(actionEvent -> {
+            for (String s : acceptableFiles) {
+                updateTagCountSafe(s,newTag.getText(),1);
+            }
+        });
+        moveTagButtons.setOnAction(actionEvent -> {
+            massStoreTag(newTag.getText(),newTag.getText());
+
+        });
 
         notesField = new TextArea("");
         notesField.setMaxWidth(320);
@@ -585,7 +599,14 @@ public class HelloApplication extends Application {
         });
 
         newTagButton.setOnAction(actionEvent -> {
-            updateTagCount(input.getText(), newTag.getText(), 1);
+            if (tagSelection1 != -1) {
+                for (int i = tagSelection1; i <= tagSelection2; i++) {
+                    updateTagCount(acceptableFiles.get(i), newTag.getText(), 1);
+                }
+            } else {
+                updateTagCount(input.getText(), newTag.getText(), 1);//hehe
+            }
+
             populateTagFieldButtons();
         });
 
@@ -603,6 +624,8 @@ public class HelloApplication extends Application {
         newButtonBox.getChildren().add(newTagButton);
         newButtonBox.getChildren().add(tagmodeButton);
         newButtonBox.getChildren().add(notesField);
+        newButtonBox.getChildren().add(moveTagButtons);
+        newButtonBox.getChildren().add(addAll);
         newButtonBox.getChildren().add(swapleftlayoutbutton2);
         tagPage.getChildren().addAll(newButtonBox,tagScrollPane);
         tagLayout.getChildren().add(tagPage);
@@ -674,7 +697,13 @@ public class HelloApplication extends Application {
                                 }
                                 populateTagFieldButtons();
                             } else {
-                                updateTagCount(input.getText(), tag, 1);
+                                if (tagSelection1 != -1) {
+                                    for (int i = tagSelection1; i <= tagSelection2; i++) {
+                                        updateTagCount(acceptableFiles.get(i), tag, 1);
+                                    }
+                                } else {
+                                    updateTagCount(input.getText(), tag, 1);
+                                }
                             }
                             count1.setText(getTagCount(input.getText(), tag) + "");
                         });
@@ -684,7 +713,7 @@ public class HelloApplication extends Application {
 
                             } else if (mouseEvent.getButton() == MouseButton.MIDDLE) {
                                 for (String s : collage) {
-                                    updateTagCountSafe(file(s), tag, 1);
+                                    updateTagCountSafe(s, tag, 1);
                                     System.out.println("updating for " + s + " tag : " + s);
 
                                 }
@@ -764,9 +793,9 @@ public class HelloApplication extends Application {
 
         updateCounters();
 
-        next = heirarchy2.getOrDefault(file(name), "");
+        next = heirarchy2.getOrDefault(name, "");
 
-        previous = heirarchy.getOrDefault(file(name), "");
+        previous = heirarchy.getOrDefault(name, "");
 
         lastSaved = getImageFromConverted(name);
         length.setText((int) lastSaved.getWidth() + "");
@@ -789,9 +818,9 @@ public class HelloApplication extends Application {
         updateImageView(name);
         updateCounters();
 
-        next = heirarchy2.getOrDefault(file(name), "");
+        next = heirarchy2.getOrDefault(name, "");
 
-        previous = heirarchy.getOrDefault(file(name), "");
+        previous = heirarchy.getOrDefault(name, "");
 
         lastSaved = getImageFromConverted(name);
         length.setText((int) lastSaved.getWidth() + "");
@@ -815,9 +844,9 @@ public class HelloApplication extends Application {
         updateImageView(name);
         updateCounters();
 
-        next = heirarchy2.getOrDefault(file(name), "");
+        next = heirarchy2.getOrDefault(name, "");
 
-        previous = heirarchy.getOrDefault(file(name), "");
+        previous = heirarchy.getOrDefault(name, "");
 
         lastSaved = getImageFromConverted(name);
         length.setText((int) lastSaved.getWidth() + "");
@@ -1140,7 +1169,7 @@ public class HelloApplication extends Application {
 
             updateTagCount(input.getText(), "normal", 1);
             for (String s : toggledTags) {
-                updateTagCountSafe(file(input.getText()), s, 1);
+                updateTagCountSafe(input.getText(), s, 1);
             }
             if (SECURITY_LEVEL > 0) {
                 updateTagCount(input.getText(), "safe", SECURITY_LEVEL);
@@ -1259,7 +1288,7 @@ public class HelloApplication extends Application {
 
 
         HBox mainInfo = new HBox();
-        mainInfo.getChildren().addAll(input, length, height, joinLast);
+        mainInfo.getChildren().addAll(input, length, height);
         navButtons.getChildren().add(mainInfo);
 
 
@@ -1470,7 +1499,7 @@ public class HelloApplication extends Application {
 
 
     public static HashMap<String, Integer> getTagMapCount(String file) {
-        String value = tagMap.get(file(file));
+        String value = tagMap.get(file);
         HashMap<String, Integer> output = new HashMap<>();
         String[] input = {value};
         if (value != null) {
@@ -1641,7 +1670,7 @@ public class HelloApplication extends Application {
         for (Map.Entry<String, String> entry :
                 tagMap.entrySet()) {
 
-            ArrayList<String> localTags = getPureTagList(file(entry.getKey()));
+            ArrayList<String> localTags = getPureTagList(entry.getKey());
             if (getTagCount(entry.getKey(), "safe") >= SECURITY_LEVEL) {
 
                 for (String s : localTags) {
@@ -1651,13 +1680,55 @@ public class HelloApplication extends Application {
                     ArrayList<String> newUpdate = tagKeys.getOrDefault(s, new ArrayList<>());
 
                     if (getTagCount(entry.getKey(), s) > 0) {
-                        newUpdate.add(file(entry.getKey()));
+                        newUpdate.add(entry.getKey());
                     }
                     tagKeys.put(s, newUpdate);
                 }
 
             }
         }
+    }
+
+    public static final void writeTagCount(ArrayList<String> items, String folder) {
+
+
+        File file = new File(getFolder()+folder+tagCountFile);
+        System.out.println(file.getAbsoluteFile());
+
+        BufferedWriter bf = null;
+        try {
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+            bf = new BufferedWriter(new FileWriter(file));
+
+
+            // iterate map entries
+            for(String s : items) {
+
+                // put key and value separated by a colon
+                bf.write(s + ":"
+                        + tagMap.get(s)+ ":" + metamap.getOrDefault(s,""));
+
+                // new line
+                bf.newLine();
+            }
+
+
+            bf.flush();
+        } catch (Exception e) {
+            System.out.println("file not exists when writing to tagcount");
+            e.printStackTrace();
+        } finally {
+
+            try {
+
+                // always close the writer
+                bf.close();
+            } catch (Exception e) {
+            }
+        }
+
     }
 
     public static final void writeTagCount() {
@@ -1673,19 +1744,24 @@ public class HelloApplication extends Application {
             }
             bf = new BufferedWriter(new FileWriter(file));
 
-
-            // iterate map entries
-            for (Map.Entry<String, String> entry :
-                    tagMap.entrySet()) {
+            for (File f : images) {
 
 
-                // put key and value separated by a colon
-                bf.write(entry.getKey() + ":"
-                        + entry.getValue() + ":" + metamap.getOrDefault(entry.getKey(),""));
+                String name = f.getName();
 
-                // new line
-                bf.newLine();
+                if (tagMap.containsKey(name )) {
+
+                    System.out.println(name);
+
+                    // put key and value separated by a colon
+                    bf.write(name  + ":"
+                            + tagMap.get(name ) + ":" + metamap.getOrDefault(name ,""));
+
+                    // new line
+                    bf.newLine();
+                }
             }
+
 
             bf.flush();
         } catch (Exception e) {
@@ -1871,14 +1947,6 @@ public class HelloApplication extends Application {
         }
     }
 
-    private static String file(String s) {
-        return s.replace("png.txt", ".png")
-                .replace("jpg.txt", ".png")
-                .replace("jpeg.txt", ".png")
-                .replace("webp.txt", ".png")
-                .replace(".jpg", ".png")
-                .replace(".jpeg", ".png");
-    }
 
 
     private static int collageIndex = 0;
@@ -1897,9 +1965,9 @@ public class HelloApplication extends Application {
                 //if (usedHeight < maxHeight) {
 
                 Image image = null;
-                int imageHeight = Integer.parseInt(fileTags.get(file(s))[2]);
+                int imageHeight = Integer.parseInt(fileTags.get(s)[2]);
 
-                int imageWidth = Integer.parseInt(fileTags.get(file(s))[1]);
+                int imageWidth = Integer.parseInt(fileTags.get(s)[1]);
 
                 if (currentWidth + imageWidth <= CANVAS_SIZE) {
 
@@ -1936,19 +2004,19 @@ public class HelloApplication extends Application {
         }
         String leftdata;
         String rightdata;
-        if (metamap.getOrDefault(file(filename), "wtf").equals("wtf")) {
-            metamap.put(file(input.getText()), "(" +dataname+ ")" + data+"(" + dataname + ")");
+        if (metamap.getOrDefault(filename, "wtf").equals("wtf")) {
+            metamap.put(input.getText(), "(" +dataname+ ")" + data+"(" + dataname + ")");
         } else {
 
-            String datas =  metamap.get(file(filename));
+            String datas =  metamap.get(filename);
             if (datas.contains("(" +dataname+ ")")) {
                 datas = datas + PADDING_CHAR;
 
                 leftdata = datas.split("\\(" +dataname+ "\\)")[0];
                 rightdata = datas.split("\\(" +dataname+ "\\)")[2].replace(PADDING_CHAR, "");
-                metamap.put(file(filename), leftdata + "(" + dataname + ")" + data+"(" + dataname + ")" + rightdata);
+                metamap.put(filename, leftdata + "(" + dataname + ")" + data+"(" + dataname + ")" + rightdata);
             } else {
-                metamap.put(file(filename), datas + "(" + dataname + ")" + data+"(" + dataname + ")");
+                metamap.put(filename, datas + "(" + dataname + ")" + data+"(" + dataname + ")");
             }
 
 
@@ -1961,11 +2029,11 @@ public class HelloApplication extends Application {
 
     private static String getMetaData(String dataname, String filename) {
 
-        if (metamap.getOrDefault(file(filename), "wtf").equals("wtf")) {
+        if (metamap.getOrDefault(filename, "wtf").equals("wtf")) {
             return null; //file meta does not exist
         } else {
 
-            String datas =  metamap.get(file(filename));
+            String datas =  metamap.get(filename);
             if (datas.contains("(" +dataname+ ")")) {
                 return formatOutputMetadata(datas.split("\\(" +dataname+ "\\)")[1]);
 
@@ -2072,7 +2140,7 @@ public class HelloApplication extends Application {
     private static HashMap<String, String[]> fileTags = new HashMap<>();
 
     private static void addTags(File file) {
-        String fileName = file(file.getName());
+        String fileName = file.getName();
         if (!isCryptic(file.getName())) {
             return;
         }
@@ -2182,10 +2250,12 @@ public class HelloApplication extends Application {
         return files;
     }
 
+    public static String tagSelectionMode = "single";//or sequenced
 
+    public static int tagSelection1 = -1;//or sequenced
+    public static int tagSelection2 = -1;//or sequenced
     ///this code needs major refactoring. duplicated code and functions!
     private static void refreshImageButtons(TextField input, Canvas canvas, FlowPane imageButtons, TextField length, TextField height) {
-
 
         int includedFiles = 0;
         int upcounting = 0;
@@ -2257,6 +2327,13 @@ public class HelloApplication extends Application {
                 if (tags.contains("sequel")) {
                     imageButton.setStyle("-fx-background-color: red;");
                 }
+                if (tagSelection1==upcounting-1 || tagSelection2==upcounting-1) {
+                    imageButton.setStyle("-fx-background-color: purple;");
+
+                } else if (tagSelection1 < upcounting-1&& tagSelection2>upcounting-1) {
+                    imageButton.setStyle("-fx-background-color: blue;");
+
+                }
 
                 Tooltip tooltip = new Tooltip(s + "\n" + date + " " + time + "\n" + tags);
                 // tooltip.setHideDelay(Duration.INDEFINITE);
@@ -2264,9 +2341,24 @@ public class HelloApplication extends Application {
                 imageButton.setTooltip(tooltip);
 
 
+                int finalUpcounting1 = upcounting;
                 imageButton.setOnMouseClicked(mouseE -> {
+                    if (mouseE.getButton() == MouseButton.MIDDLE) {
+                        if (tagSelection1 == -1) {
+                            tagSelection1= finalUpcounting1-1;
+                            updatePage();
+                        } else if (acceptableFiles.get(tagSelection1).equals(s)) {
 
-                    if (mouseE.getButton() == MouseButton.SECONDARY) {
+                            tagSelection1 = -1;
+                            tagSelection2 = -1;
+                            updatePage();
+                        }else {
+
+                            tagSelection2 = finalUpcounting1-1;
+                            updatePage();
+                        }
+                    }
+                    else if (mouseE.getButton() == MouseButton.SECONDARY) {
                         updateTagCount(s, "view", 1);
 
 
@@ -2611,8 +2703,182 @@ public class HelloApplication extends Application {
     }
 
 
-    private static void massStoreTag(String tag, String folder) {
-        
+    private static ArrayList<String> searchQuery(String query) {
+
+        String[] searchTags = query.split(" ");
+
+
+        int includedFiles = 0;
+
+        int fileCount = 0;
+        ArrayList<String> acceptableFiles = new ArrayList<>();
+
+        for (int i = 0; i < images.length; i++) {
+
+
+
+            if (isFormatSupported(images[i].getName())) {
+                String name = images[i].getName();
+                boolean shouldAdd = false;
+
+                boolean forceStop = false;
+                for (String tag : searchTags) {
+
+
+                    boolean forceContainTag = tag.contains("&");
+                    boolean dontContainTag = tag.contains("!");
+                    tag = tag.replace("&", "");
+                    tag = tag.replace("!", "");
+
+
+                    if (!forceStop) {
+
+
+                        String seperator = "";
+                        if (tag.contains(">")) {
+                            seperator = ">";
+                        } else if (tag.contains("<")) {
+                            seperator = "<";
+                        } else if (tag.contains("=")) {
+                            seperator = "=";
+                        }
+
+                        int num = 1;
+
+                        if (!seperator.equals("")) {
+                            num = Integer.parseInt(tag.split(seperator)[1]);
+
+                        }
+
+                        String type = tag;
+
+                        if (!seperator.equals("")) {
+                            type = tag.split(seperator)[0];
+
+
+                        }
+
+                        int typecount = 0;
+
+                        HashMap<String, Integer> counts = getTagMapCount(name);
+                        typecount = counts.getOrDefault(type, 0);
+                        if (type.equals("*")) {
+                            typecount = 1;
+                        }
+
+
+                        boolean caseMet = false;
+
+                        switch (seperator) {
+                            case "" -> {
+                                if (typecount > 0) {
+                                    shouldAdd = true;
+                                    caseMet = true;
+                                }
+                            }
+                            case ">" -> {
+                                if (typecount > num) {
+                                    shouldAdd = true;
+                                    caseMet = true;
+                                }
+                            }
+                            case "<" -> {
+                                if (typecount < num) {
+                                    shouldAdd = true;
+                                    caseMet = true;
+                                }
+                            }
+                            case "=" -> {
+                                if (typecount == num) {
+                                    shouldAdd = true;
+                                    caseMet = true;
+                                }
+                            }
+                        }
+                        if (!caseMet && forceContainTag) {
+                            shouldAdd = false;
+                            forceStop = true;
+                        } else if (caseMet && dontContainTag) {
+                            shouldAdd = false;
+                            forceStop = true;
+                        }
+
+
+                    }
+                }
+
+                if (shouldAdd) {
+                    switch (SECURITY_LEVEL) {
+                        case 0 -> {
+                            //nothing
+                        }
+                        case 1 -> {
+                            shouldAdd = (getTagCount(images[i].getName(), "safe") > 0);
+                        }
+                        case 2 -> {
+                            shouldAdd = (getTagCount(images[i].getName(), "safe") > 1);
+                        }
+                    }
+                }
+
+
+                //   if (tempTags.contains("oni") && !searchTags.contains("oni")) {
+                //     shouldAdd = false;
+                // }
+                if (shouldAdd) {
+                    fileCount++;
+                    applyInsertSortFiles(images[i].getName(), acceptableFiles);
+
+                    int pageSize = (pageSizeField == null) ? defaultPageSize : Integer.parseInt(pageSizeField.getText());
+                    if (fileCount > currPage * pageSize && includedFiles < pageSize) {
+                        includedFiles++;
+
+                    }
+                }
+            }
+        }
+        return acceptableFiles;
+    }
+
+
+    private static void massStoreTag(String tag, String moveFolder) {
+        System.out.println("checking all tags in list: " + tag);
+        ArrayList<String> tagged = searchQuery(tag);
+
+        String savedTags = "";
+        File folder = new File(getAbsolouteFolder()+moveFolder);
+        if (!folder.exists()) {
+            folder.mkdir();
+        }
+        writeTagCount(tagged,moveFolder+CONNECTOR);
+        for (String s : tagged) {
+
+            if (isCryptic(s)) {
+                String thumbName = s.replace("png.txt","Thumbnailpng.txt");
+                File moveFileThumb = new File(getAbsolouteFolder()+thumbName);
+                if (moveFileThumb.exists()) {
+                    if (moveFileThumb.renameTo(new File(getAbsolouteFolder()+moveFolder+CONNECTOR+thumbName))) {
+                        System.out.println(moveFileThumb.getAbsoluteFile().getName() + " moved!");
+
+                    }
+                }
+
+            }
+
+
+
+            File moveFile = new File(getAbsolouteFolder()+s);
+
+
+
+            if (moveFile.renameTo(new File(getAbsolouteFolder()+moveFolder+CONNECTOR+s))) {
+                System.out.println(moveFile.getAbsoluteFile().getName() + " moved!");
+
+            }
+
+       //     moveFile.renameTo(new File(getAbsolouteFolder()+"moveFolder"+CONNECTOR+s));
+
+        }
 
     }
 
@@ -2812,7 +3078,7 @@ public class HelloApplication extends Application {
                 // }
                 if (shouldAdd) {
                     fileCount++;
-                    applyInsertSortFiles(images[i].getName());
+                    applyInsertSortFiles(images[i].getName(), acceptableFiles);
 
                     int pageSize = (pageSizeField == null) ? defaultPageSize : Integer.parseInt(pageSizeField.getText());
                     if (fileCount > currPage * pageSize && includedFiles < pageSize) {
@@ -2885,6 +3151,8 @@ public class HelloApplication extends Application {
      //   toJSon("megafly");
         // writeHeirarchy();
         //migrateTags();
+
+
     }
 
 
@@ -2897,6 +3165,7 @@ public class HelloApplication extends Application {
         depopulateImageButtons(imageButtons);
         // populateImageButtons(input, canvas, imageButtons, length, height);
         refreshImageButtons(input, canvas, imageButtons, length, height);
+
         cuPage.setText(currPage + "");
     }
 
@@ -2904,7 +3173,7 @@ public class HelloApplication extends Application {
 
 
         for (String s : toggledTags) {
-            updateTagCountSafe(file(input.getText()),s,1);
+            updateTagCountSafe(input.getText(),s,1);
         }
 
 
@@ -3018,16 +3287,16 @@ public class HelloApplication extends Application {
     private static long getFileDateSort(String name) {
         if (sortByOptions.getSelectionModel().getSelectedItem().equals("visited")) {
             if (getTagCount(name, "notesDate") > 0) {
-                return getMillisFromStringDate(getMetaData("notes", file(name)));
+                return getMillisFromStringDate(getMetaData("notes", name));
             } else {
-                return getMillisFromStringDate(getMetaData("last_visit_date",file(name)));
+                return getMillisFromStringDate(getMetaData("last_visit_date",name));
             }
 
         } else {
             return 0;
         }
     }
-    private static void applyInsertSortFiles(String newImage) {
+    private static void applyInsertSortFiles(String newImage, ArrayList<String> acceptableFiles) {
         switch(sortByOptions.getSelectionModel().getSelectedItem()) {
             case("modified"):
                 acceptableFiles.add(newImage);
