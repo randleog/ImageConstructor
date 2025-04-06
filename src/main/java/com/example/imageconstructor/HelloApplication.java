@@ -1,10 +1,10 @@
 package com.example.imageconstructor;
 
-import javafx.animation.KeyFrame;
-import javafx.animation.Timeline;
+import com.sun.jdi.connect.Connector;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.embed.swing.SwingFXUtils;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.application.Application;
@@ -29,14 +29,21 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.stage.Popup;
+import javafx.stage.PopupWindow;
 import javafx.stage.Stage;
+import javafx.stage.Window;
 import javafx.util.Duration;
 import org.apache.commons.io.comparator.LastModifiedFileComparator;
 
 //import java.awt.*;
+import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
+import java.awt.geom.AffineTransform;
+import java.awt.image.BufferedImage;
+import java.awt.image.ImageObserver;
 import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -46,11 +53,12 @@ import java.nio.file.attribute.FileTime;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
 
 
 import static org.apache.commons.io.comparator.LastModifiedFileComparator.LASTMODIFIED_COMPARATOR;
 import static org.apache.commons.io.comparator.LastModifiedFileComparator.LASTMODIFIED_REVERSE;
+
+
 
 public class HelloApplication extends Application {
 
@@ -61,6 +69,8 @@ public class HelloApplication extends Application {
 
     //for the favorites list, i should code a new thing to animate it, detect where the grid patterns are and color detect to see where it went in the next image when using slideshow.
     //could be cool. and then maybe this could be the start of using this program to also make bespoke youtube style animations.
+
+    private static final String STYLE_FOLDER = "style";
 
     private static HashMap<String, Integer> code = new HashMap<>();
     private static String[] reverseCode = new String[260];
@@ -490,7 +500,7 @@ public class HelloApplication extends Application {
 
         readHeirarchy();
         stage.setTitle("Main Image Display");
-        stage.getIcons().add(loadObjective("style/MainImage.png"));
+        stage.getIcons().add(loadObjective(STYLE_FOLDER+CONNECTOR+"MainImage.png"));
         stage.show();
         stage.setMaximized(true);
     }
@@ -551,7 +561,7 @@ public class HelloApplication extends Application {
         tagStage.initOwner(primaryStage);
         //  VBox dialogVbox = new VBox(20);
         //      dialogVbox.getChildren().add(layout);
-        URL url = Path.of("style/Style.css").toUri().toURL();
+        URL url = Path.of(STYLE_FOLDER+CONNECTOR+"Style.css").toUri().toURL();
         if (url == null) {
             System.out.println("Resource not found. Aborting.");
             System.exit(-1);
@@ -599,13 +609,10 @@ public class HelloApplication extends Application {
         });
 
         newTagButton.setOnAction(actionEvent -> {
-            if (tagSelection1 != -1) {
-                for (int i = tagSelection1; i <= tagSelection2; i++) {
-                    updateTagCount(acceptableFiles.get(i), newTag.getText(), 1);
-                }
-            } else {
-                updateTagCount(input.getText(), newTag.getText(), 1);//hehe
+            for (String s : getSelected(false)) {
+                updateTagCount(s, newTag.getText(), 1);
             }
+
 
             populateTagFieldButtons();
         });
@@ -638,7 +645,7 @@ public class HelloApplication extends Application {
 
         tagStage.setScene(dialogScene);
         tagStage.setTitle("tagging pannel");
-        tagStage.getIcons().add(loadObjective("style/Tagging.png"));
+        tagStage.getIcons().add(loadObjective(STYLE_FOLDER+CONNECTOR+"Tagging.png"));
         tagStage.show();
 
         tagStage.setMaximized(true);
@@ -697,13 +704,10 @@ public class HelloApplication extends Application {
                                 }
                                 populateTagFieldButtons();
                             } else {
-                                if (tagSelection1 != -1) {
-                                    for (int i = tagSelection1; i <= tagSelection2; i++) {
-                                        updateTagCount(acceptableFiles.get(i), tag, 1);
-                                    }
-                                } else {
-                                    updateTagCount(input.getText(), tag, 1);
+                                for (String s : getSelected(false)) {
+                                    updateTagCount(s, tag, 1);
                                 }
+
                             }
                             count1.setText(getTagCount(input.getText(), tag) + "");
                         });
@@ -1097,14 +1101,14 @@ public class HelloApplication extends Application {
             length.setText("" + Math.min(Integer.parseInt(length.getText()), 8000));
             prepareSave(canvas, length, height);
 
-            updateTagCount(input.getText(), "monochrome", 1);
+            updateTagCount(getCurrentFileName(), "monochrome", 1);
 
             if (SECURITY_LEVEL > 0) {
-                updateTagCount(input.getText(), "safe", SECURITY_LEVEL);
+                updateTagCount(getCurrentFileName(), "safe", SECURITY_LEVEL);
             }
             try {
-                convertMonochrome(lastSaved, input.getText());
-                convertMonochrome(getThumbnail(), input.getText().replace(".png", "Thumbnail.png"));
+                convertMonochrome(lastSaved, getCurrentFileName());
+                convertMonochrome(getThumbnail(), getCurrentFileName().replace(".png", "Thumbnail.png"));
                 //  convertJSonMonochrome(lastSaved, input.getText());
 
             } catch (IOException e) {
@@ -1118,17 +1122,15 @@ public class HelloApplication extends Application {
 
         convert.setOnAction(event -> {
 
-            try {
-                convert(loadImage(input.getText(), Integer.parseInt(length.getText()), Integer.parseInt(height.getText())), input.getText());
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            saveAs("cryptic");
+
+
         });
 
         load.setOnAction(event -> {
             WritableImage writableImage = new WritableImage(CANVAS_SIZE, 1400);
             lastSaved = canvas.snapshot(null, writableImage);
-            draw(canvas, input.getText());
+            draw(canvas, getCurrentFileName());
             length.setText((int) lastSaved.getWidth() + "");
             height.setText((int) lastSaved.getHeight() + "");
 
@@ -1136,15 +1138,10 @@ public class HelloApplication extends Application {
         });
 
         save.setOnAction(event -> {
-            prepareSave(canvas, length, height);
 
-                // need to fix
-          //  BufferedImage bImage = SwingFXUtils.fromFXImage(lastSaved, null);
-          //  try {
-     //   //        ImageIO.write(bImage, "png", outputFile);
-         //   } catch (IOException e) {
-          //      throw new RuntimeException(e);
-         //   }
+            saveAs("png");
+
+
         });
 
 
@@ -1167,20 +1164,19 @@ public class HelloApplication extends Application {
             length.setText("" + Math.min(Integer.parseInt(length.getText()), 8000));
             prepareSave(canvas, length, height);
 
-            updateTagCount(input.getText(), "normal", 1);
+            updateTagCount(getCurrentFileName(), "normal", 1);
             for (String s : toggledTags) {
-                updateTagCountSafe(input.getText(), s, 1);
+                updateTagCountSafe(getCurrentFileName(), s, 1);
             }
             if (SECURITY_LEVEL > 0) {
-                updateTagCount(input.getText(), "safe", SECURITY_LEVEL);
+                updateTagCount(getCurrentFileName(), "safe", SECURITY_LEVEL);
             }
             try {
-                convert(lastSaved, input.getText());
-                convert(getThumbnail(), input.getText().replace(".png", "Thumbnail.png"));
+                convert(lastSaved, getCurrentFileName());
+                convert(getThumbnail(), getThumbnailName(getCurrentFileName()));
             } catch (IOException e) {
                 e.printStackTrace();
             }
-
 
             depopulateImageButtons(imageButtons);
             populateImageButtons(input, canvas, imageButtons, length, height);
@@ -1194,16 +1190,11 @@ public class HelloApplication extends Application {
         });
 
         delete.setOnAction(actionEvent -> {
-            File file = new File(getFolder()+input.getText());
-            System.out.println(file.getAbsoluteFile());
-            file.delete();
-            File file2 = new File(getFolder()+input.getText().replace(".png", "Thumbnailpng.txt"));
-            if (file2.exists()) {
-                file2.delete();
-            }
+            deleteSelection();
 
-            depopulateImageButtons(imageButtons);
-            populateImageButtons(input, canvas, imageButtons, length, height);
+
+
+
         });
 
 
@@ -1224,7 +1215,16 @@ public class HelloApplication extends Application {
 
         navButtons.getChildren().add(clipboard);
         HBox oldstuff = new HBox();
-        oldstuff.getChildren().addAll(new Button("______________________"), load, convert, delete,swapGUi);
+        oldstuff.getChildren().add(new Button("_________________"));
+        if (useExperimentalFeatures>0) {
+            oldstuff.getChildren().add(save);
+            oldstuff.getChildren().add(load);
+            oldstuff.getChildren().add(convert);
+        }
+
+        oldstuff.getChildren().add(delete);
+        oldstuff.getChildren().add(swapGUi);
+
 
 
         navButtons.getChildren().add(oldstuff);
@@ -1235,12 +1235,7 @@ public class HelloApplication extends Application {
 
         {
 
-            previous = input.getText();
-            long yourmilliseconds = System.currentTimeMillis();
-            SimpleDateFormat sdf = new SimpleDateFormat("dd_MMM_yyyy_HH_mm_ss");
-            Date resultdate = new Date(yourmilliseconds);
-
-            updateImageView(sdf.format(resultdate) + ".png");
+            updateImageView(getCurrentFileName());
             updateCounters();
         });
 
@@ -1291,7 +1286,9 @@ public class HelloApplication extends Application {
         mainInfo.getChildren().addAll(input, length, height);
         navButtons.getChildren().add(mainInfo);
 
-
+        if (useExperimentalFeatures>1) {
+            navButtons.getChildren().add(joinLast);
+        }
         navButtons.getChildren().add(saveCurrent);
 
         // buttons.getChildren().add(saveCurrentHalimagefColor);
@@ -1375,7 +1372,7 @@ public class HelloApplication extends Application {
         dialog.initOwner(primaryStage);
         //  VBox dialogVbox = new VBox(20);
         //      dialogVbox.getChildren().add(layout);
-        URL url = Path.of("style/Style.css").toUri().toURL();
+        URL url = Path.of(STYLE_FOLDER+CONNECTOR+"Style.css").toUri().toURL();
         if (url == null) {
             System.out.println("Resource not found. Aborting.");
             System.exit(-1);
@@ -1390,7 +1387,7 @@ public class HelloApplication extends Application {
         //    dialog.setFullScreen(true);
 
         dialog.setScene(dialogScene);
-        dialog.getIcons().add(loadObjective("style/Toolbar"));
+        dialog.getIcons().add(loadObjective(STYLE_FOLDER+CONNECTOR+"Toolbar"));
 
         dialog.setTitle("Toolbar");
         dialog.show();
@@ -1398,6 +1395,181 @@ public class HelloApplication extends Application {
 
         dialog.setMaximized(true);
 
+    }
+
+    //0=untoggle selected
+    //1 = keep selected
+    //2 = go to first selected in the image browser (not yet implemented)
+    //3 = do nothing
+    private static int usedSelectionBehavior = 0;
+
+    private static void usedSelection(String type) {
+        switch (usedSelectionBehavior) {
+            case 0 -> {
+                tagSelection2 = -1;
+                tagSelection1=-1;
+                depopulateImageButtons(imageButtons);
+                populateImageButtons(input, canvas, imageButtons, length, height);
+            }
+            case 1 -> {
+
+                depopulateImageButtons(imageButtons);
+                populateImageButtons(input, canvas, imageButtons, length, height);
+            }
+            case 2 -> {
+                currPage=tagSelection1/Integer.parseInt(pageSizeField.getText());
+                depopulateImageButtons(imageButtons);
+                populateImageButtons(input, canvas, imageButtons, length, height);
+            }
+        }
+    }
+
+
+    private static void saveAs(String type) {
+        String[] selection = getSelected(true);
+        if (selection == null) {
+            Alert notCryptic = new Alert(Alert.AlertType.INFORMATION, "no selected input", ButtonType.CLOSE);
+            notCryptic.showAndWait();
+            return;
+        }
+        prepareSave(canvas, length, height);
+        String failed = "";
+        boolean failedR = false;
+
+
+
+                switch (type) {
+                    case "cryptic" -> {
+                        for (String s : selection) {
+                            if (!isCryptic(s)) {
+                                try {
+                                    Image image = loadImage(s);
+                                    convert(image, s);
+
+                                    convert(getThumbnail(image), s.replace(".png","Thumbnail.png"));
+                                } catch (IOException e) {
+                                    failed = failed + "\n" + s + " error! ";
+                                    failedR = true;
+                                }
+                            } else {
+                                failed = failed + "\n" + s;
+                                failedR = true;
+                            }
+                        }
+                    }
+
+                    case "png" -> {
+                        for (String s : selection) {
+                            if (!isCryptic(s)) {
+                                saveCrypticToPNG(s);
+                            } else {
+                                failed = failed + "\n" + s;
+                                failedR = true;
+                            }
+                        }
+                    }
+                    default ->{
+                        failed = "invalid conversion type: " + type;
+                        failedR= true;
+                    }
+                }
+
+
+                Alert notCryptic = new Alert(Alert.AlertType.INFORMATION, failedR ? type + " type output is incompatible with input:" + failed : "Success", ButtonType.CLOSE);
+                notCryptic.showAndWait();
+
+                usedSelection("save");
+    }
+
+    private static void deleteSelection() {
+        String filesToDelete ="";
+        ArrayList<String> deleting = new ArrayList<>();
+        for (String s : getSelected(false)) {
+            String filepath = getFolder()+ CONNECTOR+ s;
+
+            deleting.add(getFolder()+CONNECTOR+s);
+            filesToDelete = filesToDelete + "\n" +filepath;
+
+            if (isCryptic(s)) {
+                deleting.add(getThumbnailName(filepath));
+                filesToDelete = filesToDelete + "\n" + getThumbnailName(filepath);
+            }
+        }
+        String stringMultipleCheck = deleting.size() > 1 ? deleting.size() + " files:" : "file:";
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "Do you wish to delete the following " + stringMultipleCheck+ "\n" + filesToDelete +" ?", ButtonType.YES, ButtonType.NO, ButtonType.CANCEL);
+        alert.showAndWait();
+
+        if (alert.getResult() == ButtonType.YES) {
+
+            ArrayList<String> failedDeletes = new ArrayList<>();
+            ArrayList<String> dontExist = new ArrayList<>();
+            ArrayList<String> success = new ArrayList<>();
+            for (String s : deleting) {
+                File file = new File(s);
+
+                if (!file.exists()) {
+                    dontExist.add(s);
+
+                }else {
+                    if (!file.delete()) {
+                        failedDeletes.add(s);
+                    } else {
+                        success.add(s);
+                    }
+                }
+            }
+
+            String resultsOfDelete = String.join(" Failed\n, ", failedDeletes) +(!failedDeletes.isEmpty() ? " Failed" : "");
+            resultsOfDelete = resultsOfDelete + "\n" + String.join(" Doesn't Exist\n, ", dontExist) +(!dontExist.isEmpty() ? " Doesn't Exist" : "");
+            resultsOfDelete = resultsOfDelete + "\n" + String.join(" Successfully Deleted\n, ", success) +(!success.isEmpty() ? " Successfully Deleted" : "");
+            Alert resultsDelete = new Alert(Alert.AlertType.INFORMATION, "Results: \n"+resultsOfDelete, ButtonType.CLOSE);
+            resultsDelete.showAndWait();
+
+
+
+            usedSelection("deleteImage");
+
+
+
+        }
+    }
+
+    private static String[] getSelected(boolean forceEmpty) {
+        if (tagSelection2 == -1) {
+            return forceEmpty&&input.getText().isEmpty() ? null : new String[]{ getCurrentFileName()};
+        } else {
+            String[] output = new String[tagSelection2-tagSelection1+1];
+            int upcounting = 0;
+            for (int i = tagSelection1; i <= tagSelection2; i++) {
+                output[upcounting] = acceptableFiles.get(i);
+                upcounting++;
+            }
+            return output;
+        }
+    }
+
+    private static String getThumbnailName(String name) {
+        return name.replace("png.txt","Thumbnailpng.txt");
+    }
+
+    private static String getCurrentFileName() {
+        if (input.getText().isEmpty()) {
+            long yourmilliseconds = System.currentTimeMillis();
+            SimpleDateFormat sdf = new SimpleDateFormat("dd_MMM_yyyy_HH_mm_ss");
+            Date resultdate = new Date(yourmilliseconds);
+            return sdf.format(resultdate) + ".png";
+        }
+        return input.getText();
+    }
+
+    private static void saveCrypticToPNG(String name) {
+        Image image = getImageFromConverted(name);
+        BufferedImage bufferI = SwingFXUtils.fromFXImage(image, null);
+        try {
+            ImageIO.write(bufferI,"png",new File(getFolder()+CONNECTOR+name.replace("png.txt",".png")));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static HBox canvasLayout;
@@ -1900,15 +2072,16 @@ public class HelloApplication extends Application {
 
     }
 
-    private static Image getThumbnail() {
-        Image image = canvas.snapshot(null, null);
+    private static Image getThumbnail(Image... image) {
+        if (image == null) {
+            image= new Image[]{canvas.snapshot(null, null)};
+        }
 
-
-        double imgWidth = image.getWidth() / 6;
-        double imgHeight = image.getWidth() / 6;
+        double imgWidth = image[0].getWidth() / 6;
+        double imgHeight = image[0].getWidth() / 6;
 
         Canvas tempCanvas = new Canvas(imgWidth, imgHeight);
-        tempCanvas.getGraphicsContext2D().drawImage(image, 0, 0, image.getWidth() / 6, image.getHeight() / 6);
+        tempCanvas.getGraphicsContext2D().drawImage(image[0], 0, 0, image[0].getWidth() / 6, image[0].getHeight() / 6);
 
         double width1 = Math.max(lastSaved.getWidth() / 6, 1);
         double height1 = Math.max(lastSaved.getHeight() / 6, 1);
@@ -2240,7 +2413,7 @@ public class HelloApplication extends Application {
 
         for (File f : images) {
             if (!f.getName().contains(".") && !f.getName().equals("src")
-                    && !f.getName().equals("out") && !f.getName().equals("style") &&!f.getName().equals("lib")
+                    && !f.getName().equals("out") && !f.getName().equals(STYLE_FOLDER) &&!f.getName().equals("lib")
                     &&!f.getName().equals("target")&&!f.getName().equals("convert")&&!f.getName().equals("converted")) {
                 System.out.println(f.getName());
                 files.add(f);
@@ -2250,7 +2423,7 @@ public class HelloApplication extends Application {
         return files;
     }
 
-    public static String tagSelectionMode = "single";//or sequenced
+
 
     public static int tagSelection1 = -1;//or sequenced
     public static int tagSelection2 = -1;//or sequenced
@@ -2299,7 +2472,11 @@ public class HelloApplication extends Application {
                 Image thumbnail;
 
                 if (isCryptic(s)) {
-                    thumbnail = getImageFromConverted(s.replace("png", "Thumbnailpng"));
+                    if (new File(getFolder()+CONNECTOR + getThumbnailName(s)).exists()) {
+                        thumbnail =getImageFromConverted(getThumbnailName(s));
+                    } else {
+                        thumbnail = loadObjective(STYLE_FOLDER+CONNECTOR+"error");
+                    }
                 }else {
 
 
@@ -2523,7 +2700,7 @@ public class HelloApplication extends Application {
                         //    dialog.setFullScreen(true);
                         dialog.setTitle(s);
                         dialog.setScene(dialogScene);
-                        dialog.getIcons().add(loadObjective("style/Image.png"));
+                        dialog.getIcons().add(loadObjective(STYLE_FOLDER+CONNECTOR+"Image.png"));
                         dialog.show();
                         //  Toolkit.getDefaultToolkit().getSystemClipboard().setContents(,null);
 
@@ -3778,12 +3955,13 @@ public class HelloApplication extends Application {
         }
         writer.close();
     }
+    //System.getProperty("user.dir")+CONNECTOR+directory;
     public static String getAbsolouteFolder() {
-        return System.getProperty("user.dir")+CONNECTOR+directory;
+        return selctedDir+CONNECTOR+directory;
     }
 //selctedDir+CONNECTOR+directory;
     public static String getFolder() {
-        return directory;
+        return selctedDir+CONNECTOR+directory;
     }
 
     public static void convert(Image image, String name) throws IOException {
@@ -3954,6 +4132,12 @@ public class HelloApplication extends Application {
 
     private static String selctedDir = "";
 
+
+    //0=only finished features
+    //1=include functional but unintuitive/ugly features
+    //2=untested or broken features
+    private static int useExperimentalFeatures = 1;
+
     public static void actionArgs(String arg) {
         String type = arg.split("-")[0];
         String input = arg.split("-")[1];
@@ -3961,12 +4145,16 @@ public class HelloApplication extends Application {
         switch(type) {
             case "security" -> SECURITY_LEVEL = Integer.parseInt(input);
             case "folder" -> selctedDir = input;
+            case "experimental" -> useExperimentalFeatures = Integer.parseInt(input);
         }
     }
 
     public static void main(String[] args) {
         for (String s : args) {
             actionArgs(s);
+        }
+        if (selctedDir.isEmpty()) {
+            selctedDir=System.getProperty("user.dir");
         }
 
 
