@@ -1,6 +1,5 @@
 package com.example.imageconstructor;
 
-import com.sun.jdi.connect.Connector;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -29,10 +28,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
-import javafx.stage.Popup;
-import javafx.stage.PopupWindow;
 import javafx.stage.Stage;
-import javafx.stage.Window;
 import javafx.util.Duration;
 import org.apache.commons.io.comparator.LastModifiedFileComparator;
 
@@ -41,9 +37,7 @@ import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
-import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
-import java.awt.image.ImageObserver;
 import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -53,6 +47,7 @@ import java.nio.file.attribute.FileTime;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 import static org.apache.commons.io.comparator.LastModifiedFileComparator.LASTMODIFIED_COMPARATOR;
@@ -188,7 +183,7 @@ public class HelloApplication extends Application {
 
     @Override
     public void start(Stage stage) throws IOException {
-
+        lastSaved = new WritableImage(32,32);
         establishLists();
 
         primaryStage = stage;
@@ -814,7 +809,8 @@ public class HelloApplication extends Application {
     }
 
     private static void loadLeftImage() {
-        int filechoice = currentIndex-1;
+        int filechoice = Math.max(currentIndex-1,0);
+
         String name = acceptableFiles.get(filechoice);
         currPage = Math.min(filechoice / Integer.parseInt(pageSizeField.getText()), fileCount / Integer.parseInt(pageSizeField.getText()));
         updatePage();
@@ -864,19 +860,76 @@ public class HelloApplication extends Application {
         currentIndex = filechoice;
     }
 
-    private static TextField slideshowtime;
-    private static ListView<String> slideshowlistView = new ListView<String>();
+
 
     private static ListView<String> sortByOptions = new ListView<String>();
-    private static String getSlideshowMode() {
-        ObservableList<String> selectedItems =  slideshowlistView.getSelectionModel().getSelectedItems();
 
-        return selectedItems.get(0);
+    private static String slideshowModeType = "random";
+    private static String getSlideshowMode() {
+
+
+         return slideshowModeType;
     }
 
     private static Text lastVisitText;
 
     private static TextArea notesField;
+
+    private static Button slideshowPaused;
+
+    private static int timerStart = 10;
+
+    private static long lastToggle = 0;
+
+    private static void startSlideShow() {
+        new Thread(
+                new Runnable() {
+
+                    int timer = timerStart;
+                    long previousLastToggle = lastToggle;
+
+                    public void run() {
+                        while (slideShowMode&& previousLastToggle == lastToggle) {
+                            Platform.runLater(new Runnable() {
+                                @Override
+                                public void run() {
+
+                                    switch(getSlideshowMode()) {
+                                        case "random" -> loadRandomImage();
+                                        case "left" -> loadLeftImage();
+                                        case "right" -> loadRightImage();
+                                    }
+
+                                }
+                            });
+                            while (timer > 0 && previousLastToggle == lastToggle) {
+
+                                    if (!slideShowMode) {
+                                        timer = 0;
+
+                                    }
+                                    Platform.runLater(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            Platform.runLater(() -> slideshowPaused.setText((slideShowMode ? "Pause " : "Unpause ") + timer));
+                                        }
+                                    });
+
+                                    timer--;
+                                    try {
+                                        Thread.sleep(1000);
+                                    } catch (InterruptedException e) {
+                                        throw new RuntimeException(e);
+                                    }
+
+                            }
+                            timer = timerStart;;
+
+
+                        }
+                    }
+                }).start();
+    }
 
     private static void setUpScroller() throws MalformedURLException {
 
@@ -884,19 +937,21 @@ public class HelloApplication extends Application {
         stages = new ArrayList<>();
         imageStack = new ArrayList<>();
 
-        length = new TextField("length");
+        length = new TextField("");
+        length.setPromptText("length");
         length.setFocusTraversable(false);
-        height = new TextField("height");
+        height = new TextField("");
+        height.setPromptText("height");
         height.setFocusTraversable(false);
 
         toggleButton = new ToggleButton();
         toggleButton.setSelected(true);
         toggleButton.setFocusTraversable(false);
 
-        slideshowlistView = new ListView<String>();
+
         ObservableList<String> list = FXCollections.observableArrayList();
 
-        slideshowlistView.setItems(list);
+
 
 
 
@@ -934,56 +989,71 @@ public class HelloApplication extends Application {
 
         Button collageMode = new Button("collage mode");
         Button slideShowModeButton = new Button("slideshow");
-        slideshowlistView.setMaxHeight(50);
-        slideshowlistView.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
+        slideshowPaused = new Button("");
+        slideshowPaused.setOnAction(actionEvent -> {
+            slideShowMode = !slideShowMode;
+            slideshowPaused.setText((slideShowMode ? "Pause " : "Unpause "));
+            lastToggle= System.currentTimeMillis();
+            if (slideShowMode) {
+                startSlideShow();
+            }
+        });
+
 
         slideShowModeButton.setOnAction(event -> {
-            slideShowMode = !slideShowMode;
-            if (slideShowMode) {
-                new Thread(
-                        new Runnable() {
 
-                            int timer = Integer.parseInt(slideshowtime.getText());
+            ButtonType random = new ButtonType("random", ButtonBar.ButtonData.OK_DONE);
+            ButtonType left = new ButtonType("left", ButtonBar.ButtonData.OK_DONE);
+            ButtonType right = new ButtonType("right", ButtonBar.ButtonData.OK_DONE);
 
-                            public void run() {
-                                while (slideShowMode) {
-                                    Platform.runLater(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            switch(getSlideshowMode()) {
-                                                case "random" -> loadRandomImage();
-                                                case "left" -> loadLeftImage();
-                                                case "right" -> loadRightImage();
-                                            }
-
-                                        }
-                                    });
-                                    while (timer > 0) {
-                                        if (!slideShowMode) {
-                                            timer = 0;
-
-                                        }
-                                        Platform.runLater(new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                Platform.runLater(() -> slideShowModeButton.setText("slideshow " + timer));
-                                            }
-                                        });
-
-                                        timer--;
-                                        try {
-                                            Thread.sleep(1000);
-                                        } catch (InterruptedException e) {
-                                            throw new RuntimeException(e);
-                                        }
-                                    }
-                                    timer = Integer.parseInt(slideshowtime.getText());;
+            Alert chooseSlideshow = new Alert(Alert.AlertType.CONFIRMATION, "slideshow options" , ButtonType.CANCEL,random,left,right);
+            //chooseSlideshow.setHeaderText("");
+            HBox timerB = new HBox();
+            Text timerS = new Text("Countdown: ");
+            TextField timer = new TextField(timerStart+"");
+            timer.setMinWidth(50);
+            timerB.setSpacing(10);
+            timerB.getChildren().addAll(timerS,timer);
 
 
-                                }
-                            }
-                        }).start();
+
+
+
+
+            VBox slideshowOptions = new VBox();
+            slideshowOptions.setSpacing(10);
+
+            slideshowOptions.getChildren().addAll(timerB);
+
+
+            chooseSlideshow.getDialogPane().getChildren().add(slideshowOptions);
+
+
+            chooseSlideshow.showAndWait();
+            timerStart = Integer.parseInt(timer.getText());
+            lastToggle= System.currentTimeMillis();
+            switch(chooseSlideshow.getResult().getText()) {
+                case "random" -> {
+                   slideshowModeType = "random";
+                    slideShowMode = true;
+                    startSlideShow();
+
+                }
+                case "left" -> {
+                    slideshowModeType = "left";
+                    slideShowMode = true;
+                    startSlideShow();
+
+                }
+                case "right" -> {
+                    slideshowModeType = "right";
+                    slideShowMode = true;
+                    startSlideShow();
+
+                }
             }
+
+
         });
         collageMode.setFocusTraversable(false);
 
@@ -1002,9 +1072,9 @@ public class HelloApplication extends Application {
         delete.setFocusTraversable(false);
         refresh.setFocusTraversable(false);
         Button load = new Button("Load Image");
-        Button convert = new Button("Convert Image (file name)");
+
         Button joinLast = new Button("join Last");
-        Button save = new Button("Save");
+        Button export = new Button("export");
         Button saveCurrent = new Button("save current");
         Button saveCurrentMonochrome = new Button("save current Monochrome");
 
@@ -1120,9 +1190,26 @@ public class HelloApplication extends Application {
             populateImageButtons(input, canvas, imageButtons, length, height);
         });
 
-        convert.setOnAction(event -> {
+        export.setOnAction(event -> {
+            ButtonType png = new ButtonType("png", ButtonBar.ButtonData.APPLY);
+            ButtonType cryptic = new ButtonType("cryptic", ButtonBar.ButtonData.APPLY);
 
-            saveAs("cryptic");
+            Alert notCryptic = new Alert(Alert.AlertType.CONFIRMATION, "select export option" , png, cryptic,ButtonType.CANCEL);
+            notCryptic.showAndWait();
+
+            switch(notCryptic.getResult().getText()) {
+                case "png" -> {
+                    saveAs("png");
+                }
+                case "cryptic" -> {
+                    saveAs("cryptic");
+                }
+                default -> {
+
+                }
+            }
+
+          //  saveAs("cryptic");
 
 
         });
@@ -1137,12 +1224,7 @@ public class HelloApplication extends Application {
 
         });
 
-        save.setOnAction(event -> {
 
-            saveAs("png");
-
-
-        });
 
 
         scrollPane = new ScrollPane();
@@ -1216,10 +1298,11 @@ public class HelloApplication extends Application {
         navButtons.getChildren().add(clipboard);
         HBox oldstuff = new HBox();
         oldstuff.getChildren().add(new Button("_________________"));
-        if (useExperimentalFeatures>0) {
-            oldstuff.getChildren().add(save);
+        oldstuff.getChildren().add(export);
+        if (useExperimentalFeatures>1) {
+
             oldstuff.getChildren().add(load);
-            oldstuff.getChildren().add(convert);
+
         }
 
         oldstuff.getChildren().add(delete);
@@ -1276,9 +1359,8 @@ public class HelloApplication extends Application {
 
 
         HBox randomm = new HBox();
-        slideshowtime = new TextField("10");
 
-        randomm.getChildren().addAll(randomNameButton,slideShowModeButton,slideshowtime,slideshowlistView);
+        randomm.getChildren().addAll(randomNameButton,slideShowModeButton,slideshowPaused);
         navButtons.getChildren().add(randomm);
 
 
@@ -1288,20 +1370,22 @@ public class HelloApplication extends Application {
 
         if (useExperimentalFeatures>1) {
             navButtons.getChildren().add(joinLast);
-        }
-        navButtons.getChildren().add(saveCurrent);
+            navButtons.getChildren().add(saveCurrent);
 
-        // buttons.getChildren().add(saveCurrentHalimagefColor);
-        navButtons.getChildren().add(saveCurrentMonochrome);
+            navButtons.getChildren().add(saveCurrentMonochrome);
+        }
+
+
+
 
         //    buttons.getChildren().add(saveLines);
 
         navButtons.getChildren().add(tools);
 
 
-        if (SECURITY_LEVEL == 0) {
-            navButtons.getChildren().add(pager);
-        }
+
+        navButtons.getChildren().add(pager);
+
         navButtons.getChildren().add(include);
 
         include.setPromptText("eg \"cool>1 and !rad=0\"");
@@ -1574,7 +1658,7 @@ public class HelloApplication extends Application {
 
     private static HBox canvasLayout;
     private static VBox navButtons;
-    private static boolean leftpanelswap = true;
+    private static boolean leftpanelswap = false;
     private static void swapLeftPanel() {
         leftpanelswap = !leftpanelswap;
 
@@ -2078,14 +2162,13 @@ public class HelloApplication extends Application {
         }
 
         double imgWidth = image[0].getWidth() / 6;
-        double imgHeight = image[0].getWidth() / 6;
+        double imgHeight = image[0].getHeight() / 6;
 
         Canvas tempCanvas = new Canvas(imgWidth, imgHeight);
-        tempCanvas.getGraphicsContext2D().drawImage(image[0], 0, 0, image[0].getWidth() / 6, image[0].getHeight() / 6);
+        tempCanvas.getGraphicsContext2D().drawImage(image[0], 0, 0, imgWidth, imgHeight);
 
-        double width1 = Math.max(lastSaved.getWidth() / 6, 1);
-        double height1 = Math.max(lastSaved.getHeight() / 6, 1);
-        WritableImage tempWritableImage = new WritableImage((int) width1, (int) height1);
+
+        WritableImage tempWritableImage = new WritableImage((int) imgWidth, (int) imgHeight);
 
         //tempCanvas.getGraphicsContext2D().setImageSmoothing(true);
 
@@ -2224,10 +2307,15 @@ public class HelloApplication extends Application {
         y = 0;
         scroll = 1;
         update(canvas);
-        int length1 = Math.max((int) Integer.parseInt(length.getText()), 1);
-        int height1 = Math.max((int) Integer.parseInt(height.getText()), 1);
-        WritableImage writableImage = new WritableImage(length1, height1);
-        lastSaved = canvas.snapshot(null, writableImage);
+        int length1 = 32;
+        int height1 = 32;
+        if (!(height.getText().isEmpty() || length.getText().isEmpty())) {
+            length1 = Math.max((int) Integer.parseInt(height.getText()), 1);
+            height1 = Math.max((int) Integer.parseInt(length.getText()), 1);
+            WritableImage writableImage = new WritableImage(length1, height1);
+            lastSaved = canvas.snapshot(null, writableImage);
+        }
+
         update(canvas);
         carrot = 0;
     }
@@ -2283,7 +2371,7 @@ public class HelloApplication extends Application {
         new Thread(
                 new Runnable() {
 
-                    int timer = Integer.parseInt(slideshowtime.getText());
+
 
                     public void run() {
 
