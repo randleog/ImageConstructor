@@ -28,6 +28,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 import org.apache.commons.io.comparator.LastModifiedFileComparator;
@@ -181,8 +183,113 @@ public class HelloApplication extends Application {
 
     }
 
+    private static final String CONFIG_FILE = "config.txt";
+
+    private static String configSettings = "";
+
+    private static String[] getConfigSettings () {
+        return configSettings.split("\n");
+    }
+
+    private static String appendMarkupSetting(String value, String input, String type) {
+        if (value.contains(type)) {
+            String[] sections = value.split(type);
+            String thirdSection = sections.length > 2 ? sections[2] : "";
+
+            return sections[0] + type + input + type + thirdSection;
+        } else {
+            return value + type + input +type;
+        }
+    }
+    private static void setConfigValues() {
+
+        try {
+
+            BufferedWriter writeConfig = new BufferedWriter(new FileWriter(CONFIG_FILE));
+
+            writeConfig.write(configSettings);
+            writeConfig.flush();
+        } catch (IOException e) {
+
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    private static String getConfigValue(String input) {
+        if (configSettings.contains(input)) {
+            return configSettings.split(input)[1];
+        } else {
+            return -1+"";
+        }
+
+
+    }
+
+    private static void loadConfigValues() {
+        File config = new File(CONFIG_FILE);
+        if (!config.exists()) {
+            try {
+                config.createNewFile();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+        }
+
+
+            BufferedReader reader = null;
+
+
+            try {
+                reader = new BufferedReader(new FileReader(config));
+                String line = null;
+                while ((line = reader.readLine()) != null) {
+                    configSettings = configSettings + line;
+                }
+
+
+            } catch (IOException ignored) {
+
+            } finally {
+                if (reader  != null) {
+                    try {
+                        reader .close();
+                    } catch (Exception ignored) {
+
+                    }
+                }
+            }
+
+
+    }
+
+
+    private static void userChooseDir(Stage stage) {
+
+
+        DirectoryChooser choice = new DirectoryChooser();
+
+        File option = choice.showDialog(stage);
+        configSettings = appendMarkupSetting(configSettings,option.getAbsolutePath(),"<filepath>");
+        filepath = option.getAbsolutePath();
+        System.out.println(filepath);
+        directory = "";
+        setConfigValues();
+
+
+    }
+
     @Override
     public void start(Stage stage) throws IOException {
+
+        loadConfigValues();
+        if (getConfigValue("<filepath>").equals("-1")) {
+            userChooseDir(stage);
+        }
+        filepath = getConfigValue("<filepath>");
+
+
         lastSaved = new WritableImage(32,32);
         establishLists();
 
@@ -498,6 +605,8 @@ public class HelloApplication extends Application {
         stage.getIcons().add(loadObjective(STYLE_FOLDER+CONNECTOR+"MainImage.png"));
         stage.show();
         stage.setMaximized(true);
+
+
     }
 
     private static void zoomcanvas(double xdiff, double ydiff, int iterations) {
@@ -976,7 +1085,12 @@ public class HelloApplication extends Application {
 
 
 
-
+        Button changeDir = new Button("folder");
+        changeDir.setOnAction(actionEvent -> {
+            userChooseDir(primaryStage);
+            depopulateImageButtons(imageButtons);
+            populateImageButtons(input,canvas,imageButtons,length,height);
+        });
 
         navButtons = new VBox();
         navLayout = new HBox();
@@ -1297,7 +1411,7 @@ public class HelloApplication extends Application {
 
         navButtons.getChildren().add(clipboard);
         HBox oldstuff = new HBox();
-        oldstuff.getChildren().add(new Button("_________________"));
+        oldstuff.getChildren().add(changeDir);
         oldstuff.getChildren().add(export);
         if (useExperimentalFeatures>1) {
 
@@ -3206,7 +3320,11 @@ public class HelloApplication extends Application {
         Set<String> searchTags = search.keySet();
 
         images = directory2.listFiles();
-        Arrays.sort(images,LASTMODIFIED_REVERSE);
+        int imageLength = 0;
+        if (images != null) {
+            Arrays.sort(images, LASTMODIFIED_REVERSE);
+            imageLength = images.length;
+        }
 
 
 
@@ -3216,7 +3334,7 @@ public class HelloApplication extends Application {
         acceptableFiles = new ArrayList<>();
 
         String previousImage = "";
-        for (int i = 0; i < images.length; i++) {
+        for (int i = 0; i < imageLength; i++) {
 
 
 
@@ -4045,11 +4163,13 @@ public class HelloApplication extends Application {
     }
     //System.getProperty("user.dir")+CONNECTOR+directory;
     public static String getAbsolouteFolder() {
-        return selctedDir+CONNECTOR+directory;
+        return filepath+CONNECTOR+directory;
     }
+
+    private static String filepath = "";
 //selctedDir+CONNECTOR+directory;
     public static String getFolder() {
-        return selctedDir+CONNECTOR+directory;
+        return filepath+CONNECTOR+directory;
     }
 
     public static void convert(Image image, String name) throws IOException {
@@ -4218,7 +4338,6 @@ public class HelloApplication extends Application {
         largestIndex = current - 1;
     }
 
-    private static String selctedDir = "";
 
 
     //0=only finished features
@@ -4232,7 +4351,6 @@ public class HelloApplication extends Application {
 
         switch(type) {
             case "security" -> SECURITY_LEVEL = Integer.parseInt(input);
-            case "folder" -> selctedDir = input;
             case "experimental" -> useExperimentalFeatures = Integer.parseInt(input);
         }
     }
@@ -4241,9 +4359,7 @@ public class HelloApplication extends Application {
         for (String s : args) {
             actionArgs(s);
         }
-        if (selctedDir.isEmpty()) {
-            selctedDir=System.getProperty("user.dir");
-        }
+
 
 
         launch();
