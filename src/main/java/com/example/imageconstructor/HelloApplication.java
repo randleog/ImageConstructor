@@ -118,15 +118,9 @@ public class HelloApplication extends Application {
     private static Canvas canvas;
 
 
-    private static double selectStartX = 0;
-    private static double selectStartY = 0;
 
     private static int fileCount = 0;
 
-
-    private static final int CHAR_OFFSET = 65;
-
-    private static boolean automaticNumbers = true;
 
 
     private static Color color;
@@ -153,7 +147,6 @@ public class HelloApplication extends Application {
 
     private static TextField input;
 
-    private static Button real;
     private static Button bookmark;
 
     private static Text views;
@@ -384,11 +377,7 @@ public class HelloApplication extends Application {
 
                     break;
                 case "select":
-                    if (!isDragging) {
-                        selectStartX = (int) ((((event.getX()))));
 
-                        selectStartY = (int) ((((event.getX()))));
-                    }
                     isDragging = true;
 
 
@@ -2614,9 +2603,7 @@ public class HelloApplication extends Application {
         ArrayList<File> files = new ArrayList<>();
 
         for (File f : images) {
-            if (!f.getName().contains(".") && !f.getName().equals("src")
-                    && !f.getName().equals("out") && !f.getName().equals(STYLE_FOLDER) &&!f.getName().equals("lib")
-                    &&!f.getName().equals("target")&&!f.getName().equals("convert")&&!f.getName().equals("converted")) {
+            if (!f.getName().contains(".")) {
                 System.out.println(f.getName());
                 files.add(f);
             }
@@ -2883,17 +2870,13 @@ public class HelloApplication extends Application {
                             scroll = scroll * factor;
 
 
-                            double distanceToCenterBeforeX = scrollEvent.getX();
-                            double distanceToCenterBeforeY = scrollEvent.getY();
-
-                            double distanceNowX = distanceToCenterBeforeX * factor;
-                            double distanceNowY = distanceToCenterBeforeY * factor;
-                            double xdiff = distanceNowX - distanceToCenterBeforeX;
-                            double ydiff = distanceNowY - distanceToCenterBeforeY;
-
                             view.setPreserveRatio(true);
 
-                            dialogVbox.setPadding(new Insets(dialogVbox.getInsets().getTop() - ydiff / scroll, 0, 0, dialogVbox.getInsets().getLeft() - xdiff / scroll));
+
+                            double cursoryRatio = (scrollEvent.getY()-dialogVbox.getInsets().getTop())/(Math.max(2160 * scroll,1));
+                            double cursorxRatio = (scrollEvent.getX()-dialogVbox.getInsets().getLeft())/((view.getImage().getWidth()/view.getImage().getHeight())*(Math.max(2160 * scroll,1)));
+                            dialogVbox.setPadding(new Insets(dialogVbox.getInsets().getTop()+((2160 * scroll)/factor-(2160 * scroll))*cursoryRatio, 0, 0,
+                                    dialogVbox.getInsets().getLeft()+((2160 * scroll)/factor-(2160 * scroll))*cursorxRatio));
                             view.setFitHeight(2160 * scroll);
 
                         });
@@ -3201,9 +3184,7 @@ public class HelloApplication extends Application {
                 }
 
 
-                //   if (tempTags.contains("oni") && !searchTags.contains("oni")) {
-                //     shouldAdd = false;
-                // }
+
                 if (shouldAdd) {
                     fileCount++;
                     applyInsertSortFiles(images[i].getName(), acceptableFiles);
@@ -3456,9 +3437,7 @@ public class HelloApplication extends Application {
                 }
 
 
-                //   if (tempTags.contains("oni") && !searchTags.contains("oni")) {
-                //     shouldAdd = false;
-                // }
+
                 if (shouldAdd) {
                     fileCount++;
                     applyInsertSortFiles(images[i].getName(), acceptableFiles);
@@ -3641,7 +3620,7 @@ public class HelloApplication extends Application {
         LinkedList<VBox> buttons = new LinkedList<>();
         buttons.add(starBox);
         for (String tag : tags) {
-            if (!tag.equals("oni") && !(tag.equals("safe") && SECURITY_LEVEL > 0)) {
+            if ( !(tag.equals("safe") && SECURITY_LEVEL > 0)) {
 
 
                 Button button = new Button(tag);
@@ -4096,7 +4075,7 @@ public class HelloApplication extends Application {
 
         FileInputStream inputstream = null;
         try {
-            inputstream = new FileInputStream(getFolder() +fileName); //rokishipngtxt.txt (The system cannot find the file specified)
+            inputstream = new FileInputStream(getFolder() +fileName);
 
 
         } catch (FileNotFoundException e) {
