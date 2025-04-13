@@ -67,19 +67,6 @@ public class HelloApplication extends Application {
     //for the favorites list, i should code a new thing to animate it, detect where the grid patterns are and color detect to see where it went in the next image when using slideshow.
     //could be cool. and then maybe this could be the start of using this program to also make bespoke youtube style animations.
 
-    private static final String STYLE_FOLDER = "style";
-
-    private static HashMap<String, Integer> code = new HashMap<>();
-    private static String[] reverseCode = new String[260];
-
-    private static final int CANVAS_SIZE = 8000;
-    private static int largestIndex = 0;
-
-
-    private static boolean redTinge = true;
-
-    private static final String CONNECTOR = "/";
-
 
     private static TextField length;
     private static TextField height;
@@ -98,15 +85,12 @@ public class HelloApplication extends Application {
     private static double starty = 0;
 
 
-    private static String directory = "";
-
     private static double startMousex = 0;
     private static double startMousey = 0;
     private static boolean isDragging = false;
     private static Image undoImage = null;
 
 
-    private static ArrayList<String> collage = new ArrayList<>();
 
     private static String toolType = "cursor";//cursor,paintbrush,select
 
@@ -176,86 +160,10 @@ public class HelloApplication extends Application {
 
     }
 
-    private static final String CONFIG_FILE = "config.txt";
-
-    private static String configSettings = "";
-
-    private static String[] getConfigSettings () {
-        return configSettings.split("\n");
-    }
-
-    private static String appendMarkupSetting(String value, String input, String type) {
-        if (value.contains(type)) {
-            String[] sections = value.split(type);
-            String thirdSection = sections.length > 2 ? sections[2] : "";
-
-            return sections[0] + type + input + type + thirdSection;
-        } else {
-            return value + type + input +type;
-        }
-    }
-    private static void setConfigValues() {
-
-        try {
-
-            BufferedWriter writeConfig = new BufferedWriter(new FileWriter(CONFIG_FILE));
-
-            writeConfig.write(configSettings);
-            writeConfig.flush();
-        } catch (IOException e) {
-
-            throw new RuntimeException(e);
-        }
-
-    }
-
-    private static String getConfigValue(String input) {
-        if (configSettings.contains(input)) {
-            return configSettings.split(input)[1];
-        } else {
-            return -1+"";
-        }
 
 
-    }
-
-    private static void loadConfigValues() {
-        File config = new File(CONFIG_FILE);
-        if (!config.exists()) {
-            try {
-                config.createNewFile();
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-
-        }
 
 
-            BufferedReader reader = null;
-
-
-            try {
-                reader = new BufferedReader(new FileReader(config));
-                String line = null;
-                while ((line = reader.readLine()) != null) {
-                    configSettings = configSettings + line;
-                }
-
-
-            } catch (IOException ignored) {
-
-            } finally {
-                if (reader  != null) {
-                    try {
-                        reader .close();
-                    } catch (Exception ignored) {
-
-                    }
-                }
-            }
-
-
-    }
 
 
     private static void userChooseDir(Stage stage) {
@@ -264,11 +172,12 @@ public class HelloApplication extends Application {
         DirectoryChooser choice = new DirectoryChooser();
 
         File option = choice.showDialog(stage);
-        configSettings = appendMarkupSetting(configSettings,option.getAbsolutePath(),"<filepath>");
-        filepath = option.getAbsolutePath();
-        System.out.println(filepath);
-        directory = "";
-        setConfigValues();
+        Config.setConfigValue(option.getAbsolutePath(),"<filepath>");
+
+        Util.filepath = option.getAbsolutePath();
+        System.out.println(Util.filepath);
+        Util.directory = "";
+        Config.setConfigValues();
 
 
     }
@@ -276,11 +185,11 @@ public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
 
-        loadConfigValues();
-        if (getConfigValue("<filepath>").equals("-1")) {
+        Config.loadConfigValues();
+        if (Config.getConfigValue("<filepath>").equals("-1")) {
             userChooseDir(stage);
         }
-        filepath = getConfigValue("<filepath>");
+        Util.filepath = Config.getConfigValue("<filepath>");
 
 
         lastSaved = new WritableImage(32,32);
@@ -290,7 +199,8 @@ public class HelloApplication extends Application {
 
         Pane root = new Pane();
 
-        canvas = new Canvas(CANVAS_SIZE, 2160);
+        canvas = new Canvas(Util.CANVAS_WIDTH, Util.CANVAS_HEIGHT);
+
 
 
         readTagCount();
@@ -326,7 +236,7 @@ public class HelloApplication extends Application {
         });
 
 
-        assignHashes();
+        ImageSaving.assignHashes();
 
 
         //  canvas.setOnMouseDrag
@@ -421,21 +331,7 @@ public class HelloApplication extends Application {
 
             zoomcanvas(xdiff,ydiff,1);
         });
-        canvas.setOnKeyPressed(keyEvent -> {
-            canvas.requestFocus();
-            if (keyEvent.getCode() == KeyCode.UP) {
-                y += ARROW_MOVE_AMOUNT;
-            } else if (keyEvent.getCode() == KeyCode.DOWN) {
-                y -= ARROW_MOVE_AMOUNT;
-            } else if (keyEvent.getCode() == KeyCode.RIGHT) {
-                x -= ARROW_MOVE_AMOUNT;
-                collageIndex++;
-            } else if (keyEvent.getCode() == KeyCode.LEFT) {
-                x += ARROW_MOVE_AMOUNT;
-                collageIndex--;
-            }
-            update(canvas);
-        });
+
 
         canvas.setOnMouseClicked(event -> {
             canvasMouseClicked(event.getX(), event.getY(), event.getButton().name());
@@ -591,7 +487,7 @@ public class HelloApplication extends Application {
 
         readHeirarchy();
         stage.setTitle("Main Image Display");
-        stage.getIcons().add(loadObjective(STYLE_FOLDER+CONNECTOR+"MainImage.png"));
+        stage.getIcons().add(ImageSaving.loadObjective(Util.STYLE_FOLDER+Util.CONNECTOR+"MainImage.png")); //this needs refactoring, perhaps loadObjective needs to be in config, and the style images / css are a part of the config?
         stage.show();
         stage.setMaximized(true);
 
@@ -654,7 +550,7 @@ public class HelloApplication extends Application {
         tagStage.initOwner(primaryStage);
         //  VBox dialogVbox = new VBox(20);
         //      dialogVbox.getChildren().add(layout);
-        URL url = Path.of(STYLE_FOLDER+CONNECTOR+"Style.css").toUri().toURL();
+        URL url = Path.of(Util.STYLE_FOLDER+Util.CONNECTOR+"Style.css").toUri().toURL();
         if (url == null) {
             System.out.println("Resource not found. Aborting.");
             System.exit(-1);
@@ -738,7 +634,7 @@ public class HelloApplication extends Application {
 
         tagStage.setScene(dialogScene);
         tagStage.setTitle("tagging pannel");
-        tagStage.getIcons().add(loadObjective(STYLE_FOLDER+CONNECTOR+"Tagging.png"));
+        tagStage.getIcons().add(ImageSaving.loadObjective(Util.STYLE_FOLDER+Util.CONNECTOR+"Tagging.png"));
         tagStage.show();
 
         tagStage.setMaximized(true);
@@ -807,14 +703,6 @@ public class HelloApplication extends Application {
                         button.setOnMouseClicked(mouseEvent -> {
                             if (mouseEvent.getButton() == MouseButton.SECONDARY) {
                                 updateTagCount(input.getText(), tag, -1);
-
-                            } else if (mouseEvent.getButton() == MouseButton.MIDDLE) {
-                                for (String s : collage) {
-                                    updateTagCountSafe(s, tag, 1);
-                                    System.out.println("updating for " + s + " tag : " + s);
-
-                                }
-                                writeTagCount();
 
                             }
                             count1.setText(getTagCount(input.getText(), tag) + "");
@@ -894,7 +782,7 @@ public class HelloApplication extends Application {
 
         previous = heirarchy.getOrDefault(name, "");
 
-        lastSaved = getImageFromConverted(name);
+        lastSaved = ImageSaving.getImageFromConverted(name);
         length.setText((int) lastSaved.getWidth() + "");
         height.setText((int) lastSaved.getHeight() + "");
         //tagField.setText(getTagsString(name, false));
@@ -920,7 +808,7 @@ public class HelloApplication extends Application {
 
         previous = heirarchy.getOrDefault(name, "");
 
-        lastSaved = getImageFromConverted(name);
+        lastSaved = ImageSaving.getImageFromConverted(name);
         length.setText((int) lastSaved.getWidth() + "");
         height.setText((int) lastSaved.getHeight() + "");
         //tagField.setText(getTagsString(name, false));
@@ -946,7 +834,7 @@ public class HelloApplication extends Application {
 
         previous = heirarchy.getOrDefault(name, "");
 
-        lastSaved = getImageFromConverted(name);
+        lastSaved = ImageSaving.getImageFromConverted(name);
         length.setText((int) lastSaved.getWidth() + "");
         height.setText((int) lastSaved.getHeight() + "");
         //tagField.setText(getTagsString(name, false));
@@ -1234,8 +1122,8 @@ public class HelloApplication extends Application {
 
 
             System.out.println("joining " + name + " with " + name2);
-            ArrayList<String> file1 = loadConverted(name);
-            ArrayList<String> file2 = loadConverted(name2);
+            ArrayList<String> file1 = ImageSaving.loadConverted(name);
+            ArrayList<String> file2 = ImageSaving.loadConverted(name2);
             String firstLine1 = file1.get(0);
             String firstLine2 = file2.get(0);
             file1.remove(0);
@@ -1252,7 +1140,7 @@ public class HelloApplication extends Application {
             file2.set(0, resultFirstLine2);
             file2.addAll(file1);
             try {
-                writeFileText(name2, file2);
+                ImageSaving.writeFileText(name2, file2);
 
             } catch (IOException e) {
                 throw new RuntimeException(e);
@@ -1280,8 +1168,8 @@ public class HelloApplication extends Application {
                 updateTagCount(getCurrentFileName(), "safe", SECURITY_LEVEL);
             }
             try {
-                convertMonochrome(lastSaved, getCurrentFileName());
-                convertMonochrome(getThumbnail(), getCurrentFileName().replace(".png", "Thumbnail.png"));
+                ImageSaving.convertMonochrome(lastSaved, getCurrentFileName());
+                ImageSaving.convertMonochrome(getThumbnail(), getCurrentFileName().replace(".png", "Thumbnail.png"));
                 //  convertJSonMonochrome(lastSaved, input.getText());
 
             } catch (IOException e) {
@@ -1318,7 +1206,7 @@ public class HelloApplication extends Application {
         });
 
         load.setOnAction(event -> {
-            WritableImage writableImage = new WritableImage(CANVAS_SIZE, 1400);
+            WritableImage writableImage = new WritableImage(Util.CANVAS_WIDTH, 1400);
             lastSaved = canvas.snapshot(null, writableImage);
             draw(canvas, getCurrentFileName());
             length.setText((int) lastSaved.getWidth() + "");
@@ -1357,8 +1245,8 @@ public class HelloApplication extends Application {
                 updateTagCount(getCurrentFileName(), "safe", SECURITY_LEVEL);
             }
             try {
-                convert(lastSaved, getCurrentFileName());
-                convert(getThumbnail(), getThumbnailName(getCurrentFileName()));
+                ImageSaving.convert(lastSaved, getCurrentFileName());
+                ImageSaving.convert(getThumbnail(), getThumbnailName(getCurrentFileName()));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -1393,7 +1281,7 @@ public class HelloApplication extends Application {
             y = 0;
             scroll = 1;
 
-            constructCollage(canvas);
+
             lastSaved = canvas.snapshot(null, null);
             update(canvas);
         });
@@ -1559,7 +1447,7 @@ public class HelloApplication extends Application {
         dialog.initOwner(primaryStage);
         //  VBox dialogVbox = new VBox(20);
         //      dialogVbox.getChildren().add(layout);
-        URL url = Path.of(STYLE_FOLDER+CONNECTOR+"Style.css").toUri().toURL();
+        URL url = Path.of(Util.STYLE_FOLDER+Util.CONNECTOR+"Style.css").toUri().toURL();
         if (url == null) {
             System.out.println("Resource not found. Aborting.");
             System.exit(-1);
@@ -1574,7 +1462,7 @@ public class HelloApplication extends Application {
         //    dialog.setFullScreen(true);
 
         dialog.setScene(dialogScene);
-        dialog.getIcons().add(loadObjective(STYLE_FOLDER+CONNECTOR+"Toolbar"));
+        dialog.getIcons().add(ImageSaving.loadObjective(Util.STYLE_FOLDER+Util.CONNECTOR+"Toolbar"));
 
         dialog.setTitle("Toolbar");
         dialog.show();
@@ -1628,12 +1516,12 @@ public class HelloApplication extends Application {
                 switch (type) {
                     case "cryptic" -> {
                         for (String s : selection) {
-                            if (!isCryptic(s)) {
+                            if (!ImageSaving.isCryptic(s)) {
                                 try {
-                                    Image image = loadImage(s);
-                                    convert(image, s);
+                                    Image image = ImageSaving.loadImage(s);
+                                    ImageSaving.convert(image, s);
 
-                                    convert(getThumbnail(image), s.replace(".png","Thumbnail.png"));
+                                    ImageSaving.convert(getThumbnail(image), s.replace(".png","Thumbnail.png"));
                                 } catch (IOException e) {
                                     failed = failed + "\n" + s + " error! ";
                                     failedR = true;
@@ -1647,7 +1535,7 @@ public class HelloApplication extends Application {
 
                     case "png" -> {
                         for (String s : selection) {
-                            if (!isCryptic(s)) {
+                            if (!ImageSaving.isCryptic(s)) {
                                 saveCrypticToPNG(s);
                             } else {
                                 failed = failed + "\n" + s;
@@ -1672,12 +1560,12 @@ public class HelloApplication extends Application {
         String filesToDelete ="";
         ArrayList<String> deleting = new ArrayList<>();
         for (String s : getSelected(false)) {
-            String filepath = getFolder()+ CONNECTOR+ s;
+            String filepath = Util.getFolder()+ Util.CONNECTOR+ s;
 
-            deleting.add(getFolder()+CONNECTOR+s);
+            deleting.add(Util.getFolder()+Util.CONNECTOR+s);
             filesToDelete = filesToDelete + "\n" +filepath;
 
-            if (isCryptic(s)) {
+            if (ImageSaving.isCryptic(s)) {
                 deleting.add(getThumbnailName(filepath));
                 filesToDelete = filesToDelete + "\n" + getThumbnailName(filepath);
             }
@@ -1750,10 +1638,10 @@ public class HelloApplication extends Application {
     }
 
     private static void saveCrypticToPNG(String name) {
-        Image image = getImageFromConverted(name);
+        Image image = ImageSaving.getImageFromConverted(name);
         BufferedImage bufferI = SwingFXUtils.fromFXImage(image, null);
         try {
-            ImageIO.write(bufferI,"png",new File(getFolder()+CONNECTOR+name.replace("png.txt",".png")));
+            ImageIO.write(bufferI,"png",new File(Util.getFolder()+Util.CONNECTOR+name.replace("png.txt",".png")));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -1880,7 +1768,7 @@ public class HelloApplication extends Application {
     public static String heirarchyFile = "heirarchy.txt";
 
     public static final void writeHeirarchy() {
-        File file = new File(getFolder()+heirarchyFile);
+        File file = new File(Util.getFolder()+heirarchyFile);
 
         BufferedWriter bf = null;
         try {
@@ -1917,7 +1805,7 @@ public class HelloApplication extends Application {
     }
 
     public static final void readHeirarchy() {
-        File file = new File(getFolder() +heirarchyFile);
+        File file = new File(Util.getFolder() +heirarchyFile);
 
 
         BufferedReader br = null;
@@ -1967,7 +1855,7 @@ public class HelloApplication extends Application {
 
 
     public static final void readTagCount() {
-        File file = new File(getFolder()+tagCountFile);
+        File file = new File(Util.getFolder()+tagCountFile);
         tagMap = new HashMap<>();
         metamap = new HashMap<>();
 
@@ -2051,7 +1939,7 @@ public class HelloApplication extends Application {
     public static final void writeTagCount(ArrayList<String> items, String folder) {
 
 
-        File file = new File(getFolder()+folder+tagCountFile);
+        File file = new File(Util.getFolder()+folder+tagCountFile);
         System.out.println(file.getAbsoluteFile());
 
         BufferedWriter bf = null;
@@ -2093,7 +1981,7 @@ public class HelloApplication extends Application {
     public static final void writeTagCount() {
 
 
-        File file = new File(getFolder()+tagCountFile);
+        File file = new File(Util.getFolder()+tagCountFile);
         System.out.println(file.getAbsoluteFile());
 
         BufferedWriter bf = null;
@@ -2140,9 +2028,9 @@ public class HelloApplication extends Application {
 
 
     public static void delete(String name) {
-        File file = new File(getFolder()+name);
+        File file = new File(Util.getFolder()+name);
         file.delete();
-        File file2 = new File(getFolder()+name.replace(".png", "Thumbnailpng.txt"));
+        File file2 = new File(Util.getFolder()+name.replace(".png", "Thumbnailpng.txt"));
         file2.delete();
 
     }
@@ -2162,8 +2050,8 @@ public class HelloApplication extends Application {
 
 
         try {
-            convert(lastSaved, input);
-            convert(getThumbnail(), input.replace(".png", "Thumbnail.png").replace(".jpg", "Thumbnail.png").replace(".webp", "Thumbnail.png"));
+            ImageSaving.convert(lastSaved, input);
+            ImageSaving.convert(getThumbnail(), input.replace(".png", "Thumbnail.png").replace(".jpg", "Thumbnail.png").replace(".webp", "Thumbnail.png"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -2308,44 +2196,6 @@ public class HelloApplication extends Application {
 
 
 
-    private static int collageIndex = 0;
-
-
-    private static void constructCollage(Canvas canvas) {
-
-        int currentWidth = 0;
-
-
-        for (int i = 0; i < collage.size(); i++) {
-            if (i >= collageIndex) {
-                int j = i - collageIndex;
-                String s = collage.get(i);
-
-                //if (usedHeight < maxHeight) {
-
-                Image image = null;
-                int imageHeight = Integer.parseInt(fileTags.get(s)[2]);
-
-                int imageWidth = Integer.parseInt(fileTags.get(s)[1]);
-
-                if (currentWidth + imageWidth <= CANVAS_SIZE) {
-
-                    image = getImageFromConverted(s);
-
-                    canvas.getGraphicsContext2D().drawImage(image, x + currentWidth, y);
-                    canvas.getGraphicsContext2D().setFont(new Font("monospace", 20));
-                    canvas.getGraphicsContext2D().fillText(s, x + currentWidth + 20, y + 20);
-                    currentWidth = currentWidth + imageWidth;
-
-                }
-            }
-
-            // }
-
-        }
-
-
-    }
 
     //metadata should not use the following characters: - : and ()
     private static final String PADDING_CHAR = "------";
@@ -2464,7 +2314,7 @@ public class HelloApplication extends Application {
         canvas.getGraphicsContext2D().fillRect(x * scroll - sizeFactor, y * scroll + lastSaved.getHeight() * scroll, lastSaved.getWidth() * scroll + sizeFactor * 2, sizeFactor);
 
 
-        for (int i = 0; i < CANVAS_SIZE / 1000 + 1; i++) {
+        for (int i = 0; i < Util.CANVAS_WIDTH / 1000 + 1; i++) {
 
             canvas.getGraphicsContext2D().fillText(i + "K", x * scroll + i * 1000 * scroll, y * scroll - 20);
         }
@@ -2481,7 +2331,7 @@ public class HelloApplication extends Application {
 
                         resetPos();
 
-                        lastSaved = getImageFromConverted(input);
+                        lastSaved = ImageSaving.getImageFromConverted(input);
                         Platform.runLater(new Runnable() {
                             @Override
                             public void run() {
@@ -2505,7 +2355,7 @@ public class HelloApplication extends Application {
 
     private static void addTags(File file) {
         String fileName = file.getName();
-        if (!isCryptic(file.getName())) {
+        if (!ImageSaving.isCryptic(file.getName())) {
             return;
         }
         try {
@@ -2591,14 +2441,11 @@ public class HelloApplication extends Application {
     }
 
 
-    private static boolean isCryptic(String input) {
-        return input.contains("png.");
-    }
 
     private static ArrayList<File> listFolders () {
 
-        File directory2 = new File(getAbsolouteFolder());
-        collage = new ArrayList<>();
+        File directory2 = new File(Util.getAbsolouteFolder());
+
         File[] images = directory2.listFiles();
         ArrayList<File> files = new ArrayList<>();
 
@@ -2650,7 +2497,7 @@ public class HelloApplication extends Application {
                 String time = "";
                 String date = "";
                 try {
-                    FileTime creationTime = (FileTime) Files.getAttribute(Path.of(getFolder() +s), "creationTime"); //possible bug introduced from directory
+                    FileTime creationTime = (FileTime) Files.getAttribute(Path.of(Util.getFolder() +s), "creationTime"); //possible bug introduced from directory
                     date = creationTime.toString().split("T")[0];
                     time = creationTime.toString().split("T")[1].split("\\.")[0];
                 } catch (IOException e) {
@@ -2660,18 +2507,18 @@ public class HelloApplication extends Application {
 
                 Image thumbnail;
 
-                if (isCryptic(s)) {
-                    if (new File(getFolder()+CONNECTOR + getThumbnailName(s)).exists()) {
-                        thumbnail =getImageFromConverted(getThumbnailName(s));
+                if (ImageSaving.isCryptic(s)) {
+                    if (new File(Util.getFolder()+Util.CONNECTOR + getThumbnailName(s)).exists()) {
+                        thumbnail =ImageSaving.getImageFromConverted(getThumbnailName(s));
                     } else {
-                        thumbnail = loadObjective(STYLE_FOLDER+CONNECTOR+"error");
+                        thumbnail = ImageSaving.loadObjective(Util.STYLE_FOLDER+Util.CONNECTOR+"error");
                     }
                 }else {
 
 
 
 
-                    thumbnail = loadImageThumb(s);
+                    thumbnail = ImageSaving.loadImageThumb(s);
 
                 }
 
@@ -2741,7 +2588,7 @@ public class HelloApplication extends Application {
 
 
                         VBox dialogVbox = new VBox(IMAGE_BUTTON_GAP);
-                        Image image = getImageFromConverted(s);
+                        Image image = ImageSaving.getImageFromConverted(s);
                         ImageView view = new ImageView(image);
                         view.setPreserveRatio(true);
                         stages.add(view);
@@ -2885,7 +2732,7 @@ public class HelloApplication extends Application {
                         //    dialog.setFullScreen(true);
                         dialog.setTitle(s);
                         dialog.setScene(dialogScene);
-                        dialog.getIcons().add(loadObjective(STYLE_FOLDER+CONNECTOR+"Image.png"));
+                        dialog.getIcons().add(ImageSaving.loadObjective(Util.STYLE_FOLDER+Util.CONNECTOR+"Image.png"));
                         dialog.show();
                         //  Toolkit.getDefaultToolkit().getSystemClipboard().setContents(,null);
 
@@ -2896,7 +2743,7 @@ public class HelloApplication extends Application {
                     Dragboard db = imageButton.startDragAndDrop(TransferMode.ANY);
                     ClipboardContent content = new ClipboardContent();
 
-                    content.putImage(getImageFromConverted(imageButton.getTooltip().getText().split("\n")[0]));
+                    content.putImage(ImageSaving.getImageFromConverted(imageButton.getTooltip().getText().split("\n")[0]));
                     db.setContent(content);
                 });
                 imageButton.setOnMouseDragged(mouseEvent -> {
@@ -2920,10 +2767,10 @@ public class HelloApplication extends Application {
 
 
 
-                        if (isCryptic(s)) {
-                            lastSaved = getImageFromConverted(s);
+                        if (ImageSaving.isCryptic(s)) {
+                            lastSaved = ImageSaving.getImageFromConverted(s);
                         } else {
-                            lastSaved = loadImage(s);
+                            lastSaved = ImageSaving.loadImage(s);
                         }
 
                         length.setText((int) lastSaved.getWidth() + "");
@@ -2955,9 +2802,9 @@ public class HelloApplication extends Application {
         ArrayList<File> files = listFolders();
 
         for (File f : files) {
-            Button folderpath = new Button(f.getName()+CONNECTOR);
+            Button folderpath = new Button(f.getName()+Util.CONNECTOR);
             folderpath.setOnAction(actionEvent -> {
-                directory = directory + f.getName()+CONNECTOR;
+                Util.directory = Util.directory + f.getName()+Util.CONNECTOR;
                 readHeirarchy();
                 readTagCount();
 
@@ -2968,17 +2815,17 @@ public class HelloApplication extends Application {
             imageButtons.getChildren().add(folderpath);
         }
         Button folderpath = new Button("<- parent");
-        String[] sections = directory.split(CONNECTOR);
+        String[] sections = Util.directory.split(Util.CONNECTOR);
         if (sections.length > 0) {
             folderpath.setOnAction(actionEvent -> {
 
                 String allbutlast = "";
                 for (int x = 0; x < sections.length - 1; x++) {
-                    allbutlast = allbutlast + sections[x] + CONNECTOR;
+                    allbutlast = allbutlast + sections[x] + Util.CONNECTOR;
                 }
 
 
-                directory = allbutlast;
+                Util.directory = allbutlast;
 
                 readHeirarchy();
                 readTagCount();
@@ -3206,18 +3053,18 @@ public class HelloApplication extends Application {
         ArrayList<String> tagged = searchQuery(tag);
 
         String savedTags = "";
-        File folder = new File(getAbsolouteFolder()+moveFolder);
+        File folder = new File(Util.getAbsolouteFolder()+moveFolder);
         if (!folder.exists()) {
             folder.mkdir();
         }
-        writeTagCount(tagged,moveFolder+CONNECTOR);
+        writeTagCount(tagged,moveFolder+Util.CONNECTOR);
         for (String s : tagged) {
 
-            if (isCryptic(s)) {
+            if (ImageSaving.isCryptic(s)) {
                 String thumbName = s.replace("png.txt","Thumbnailpng.txt");
-                File moveFileThumb = new File(getAbsolouteFolder()+thumbName);
+                File moveFileThumb = new File(Util.getAbsolouteFolder()+thumbName);
                 if (moveFileThumb.exists()) {
-                    if (moveFileThumb.renameTo(new File(getAbsolouteFolder()+moveFolder+CONNECTOR+thumbName))) {
+                    if (moveFileThumb.renameTo(new File(Util.getAbsolouteFolder()+moveFolder+Util.CONNECTOR+thumbName))) {
                         System.out.println(moveFileThumb.getAbsoluteFile().getName() + " moved!");
 
                     }
@@ -3227,11 +3074,11 @@ public class HelloApplication extends Application {
 
 
 
-            File moveFile = new File(getAbsolouteFolder()+s);
+            File moveFile = new File(Util.getAbsolouteFolder()+s);
 
 
 
-            if (moveFile.renameTo(new File(getAbsolouteFolder()+moveFolder+CONNECTOR+s))) {
+            if (moveFile.renameTo(new File(Util.getAbsolouteFolder()+moveFolder+Util.CONNECTOR+s))) {
                 System.out.println(moveFile.getAbsoluteFile().getName() + " moved!");
 
             }
@@ -3291,7 +3138,7 @@ public class HelloApplication extends Application {
             populateTagButtons(input, canvas, imageButtons, length, height, include);
             return;
         }
-        File directory2 = new File(getAbsolouteFolder());
+        File directory2 = new File(Util.getAbsolouteFolder());
         search = new HashMap<>();
         String[] searchArray = include.getText().split(" ");
 
@@ -3566,8 +3413,8 @@ public class HelloApplication extends Application {
     }
 
     private static void populateTagButtons(TextField input, Canvas canvas, FlowPane imageButtons, TextField length, TextField height, TextField include) {
-        File directory2 = new File(getAbsolouteFolder());
-        System.out.println(getAbsolouteFolder());
+        File directory2 = new File(Util.getAbsolouteFolder());
+        System.out.println(Util.getAbsolouteFolder());
         search = new HashMap<>();
 
 
@@ -3578,7 +3425,6 @@ public class HelloApplication extends Application {
         }
 
 
-        collage = new ArrayList<>();
         File[] images = directory2.listFiles();
         System.out.println(images.length);
         Arrays.sort(images, LASTMODIFIED_COMPARATOR);
@@ -3723,598 +3569,6 @@ public class HelloApplication extends Application {
             include.setText(button.getText());
             populateImageButtons(input, canvas, imageButtons, length, height);
         });
-    }
-
-
-    //credit: https://alvinalexander.com/java/java-clipboard-image-copy-paste/
-    //could also be cause of linux bug?
-    public static Image getImageFromClipboard() {
-        Transferable transferable = Toolkit.getDefaultToolkit().getSystemClipboard().getContents(null);
-        if (transferable != null && transferable.isDataFlavorSupported(DataFlavor.imageFlavor)) {
-         //   try {
-
-                //needs a workaround
-            //    return SwingFXUtils.toFXImage((BufferedImage) transferable.getTransferData(DataFlavor.imageFlavor), null);
-         //   } catch (UnsupportedFlavorException | IOException e) {
-         //       // handle this as desired
-         //       e.printStackTrace();
-        //    }
-        } else {
-     //       System.err.println("getImageFromClipboard: That wasn't an image!");
-        }
-        return null;
-    }
-    private static Image loadImageThumb(String fileName) {
-
-
-        Image image;
-        FileInputStream inputstream = null;
-        try {
-            inputstream = new FileInputStream(getFolder() +fileName);
-
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        image = new Image(inputstream, 234, 234, true, true);
-
-        return image;
-    }
-    private static Image loadObjective(String fileName) {
-
-        if (!(new File(fileName).exists())) {
-            return new WritableImage(32,32);
-        }
-        Image image;
-        FileInputStream inputstream = null;
-        try {
-            inputstream = new FileInputStream(fileName);
-
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        image = new Image(inputstream);
-
-        return image;
-    }
-
-    private static Image loadImage(String fileName) {
-
-
-        Image image;
-        FileInputStream inputstream = null;
-        try {
-            inputstream = new FileInputStream(getFolder() +fileName);
-
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        image = new Image(inputstream);
-
-        return image;
-    }
-
-    private static Image loadImage(String fileName, int length, int width) {
-
-
-        Image image;
-        FileInputStream inputstream = null;
-        try {
-            inputstream = new FileInputStream(getFolder() +fileName);
-
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        image = new Image(inputstream, length, width, true, false);
-
-        return image;
-    }
-
-    private static int addExtra(String current, int index) {
-
-        boolean shouldAdd = false;
-        if (current.charAt(index) == '!') {
-            shouldAdd = true;
-            index++;
-        }
-
-        if (code.get(current.charAt(index) + "") == null) {
-            return 0;
-        }
-        return code.get(current.charAt(index) + "") + (shouldAdd ? largestIndex : 0);
-
-    }
-
-
-    private static Image getImageFromConverted(String name) {
-
-        if (!isCryptic(name)) {
-            return loadImage(name);
-        }
-        ArrayList<String> lines = loadConverted(name);
-
-        String[] info = lines.get(0).split(" ");
-
-        int length = Integer.parseInt(info[1]);
-        int height = Integer.parseInt(info[2]);
-        String type = info[0];
-
-
-        lines.remove(0);
-        WritableImage image = new WritableImage(length, height);
-        switch (type) {
-            case "half_color":
-                return writeToHalfColorImage(image, lines, length, height);
-            case "monochrome":
-                return writeMonochromeImage(image, lines, length, height);
-            default:
-                return writeToNormalImage(image, lines, length, height);
-        }
-        //writeToNormalImage(image, lines, length, height);
-
-
-    }
-
-
-    private static Image writeMonochromeImage(WritableImage image, ArrayList<String> lines, int length, int height) {
-
-        Color last = null;
-        for (int i = 0; i < length; i++) {
-            String row = lines.get(i);
-            int index = 0;
-            for (int j = 0; j < height; j++) {
-
-                //  String current = row;
-
-
-                if (row.charAt(index) == '\"') {
-                    image.getPixelWriter().setColor(i, j, last);
-                    index++;
-                } else {
-
-
-                    int r = addExtra(row, index);
-
-                    if (r > largestIndex) {
-                        index++;
-                    }
-                    index++;
-                    Color currentColor;
-
-                    currentColor = Color.rgb(r, r, r, 1);
-                    //currentColor = Color.rgb(Math.min((int)(r/0.92),255), r, Math.min((int)(r/0.96),255), 1);
-                    image.getPixelWriter().setColor(i, j, currentColor);
-
-
-                    last = currentColor;
-                }
-            }
-        }
-        return image;
-    }
-
-
-    private static Image writeToNormalImage(WritableImage image, ArrayList<String> lines, int length, int height) {
-        Color last = null;
-        for (int i = 0; i < length; i++) {
-            String row = lines.get(i);
-
-            int index = 0;
-            for (int j = 0; j < height; j++) {
-
-
-                //  String current = row;
-
-
-                if (row.charAt(index) == '\"') {
-                    image.getPixelWriter().setColor(i, j, last);
-                    index++;
-                } else {
-
-
-                    int r = addExtra(row, index);
-
-                    if (r > largestIndex) {
-                        index++;
-                    }
-                    index++;
-                    Color currentColor;
-
-                    if (row.charAt(index) == '#') { //monochrome detection
-                        currentColor = Color.rgb(r, r, r, 1);
-                        image.getPixelWriter().setColor(i, j, currentColor);
-                        index++;
-                    } else {
-                        int g = addExtra(row, index);
-                        index++;
-                        if (g > largestIndex) {
-                            index++;
-                        }
-                        int b = addExtra(row, index);
-                        index++;
-                        if (b > largestIndex) {
-                            index++;
-                        }
-
-                        currentColor = Color.rgb(r, g, b, 1);
-
-                        image.getPixelWriter().setColor(i, j, currentColor);
-                    }
-
-                    last = currentColor;
-                }
-            }
-        }
-        return image;
-    }
-
-    private static Image writeToHalfColorImage(WritableImage image, ArrayList<String> lines, int length, int height) {
-        Color last = null;
-        int last2 = 0;
-        int[][] brightness = new int[length][height];
-        for (int i = 0; i < length; i++) {
-            int index = 0;
-            for (int j = 0; j < height; j++) {
-
-                //System.out.println(lines.get(0).charAt(index) + " " + index + " " + i + " " + j);
-                if (lines.get(0).charAt(index) == '\"') {
-                    brightness[i][j] = last2;
-
-                } else {
-                    brightness[i][j] = addExtra(lines.get(0), index);
-                    if (brightness[i][j] > largestIndex) {
-                        index++;
-                    }
-
-                    last2 = brightness[i][j];
-                }
-
-                index++;
-            }
-            lines.remove(0);
-        }
-
-
-        return applyColorOverlay(image, lines, brightness);
-
-    }
-
-    private static WritableImage applyColorOverlay(WritableImage image1, ArrayList<String> lines, int[][] brightness) {
-
-        Color last = null;
-        int length = (int) image1.getWidth();
-        int height = (int) image1.getHeight();
-        WritableImage image = new WritableImage(length, height);
-        Canvas canvas = new Canvas(length, height);
-        for (int i = 0; i < length; i += 2) {
-            String row = lines.get(i / 2);
-            int index = 0;
-            for (int j = 0; j < image.getHeight(); j += 2) {
-
-                //  String current = row;
-
-                Color currentColor = new Color(0, 0, 0, 0);
-                if (row.charAt(index) == '\"') {
-                    currentColor = last;
-                    index++;
-                } else {
-
-
-                    int r = addExtra(row, index);
-
-                    if (r > largestIndex) {
-                        index++;
-                    }
-                    index++;
-
-                    if (row.charAt(index) == '#') { //monochrome detection
-                        currentColor = Color.rgb(r, r, r, 1);
-                        index++;
-                    } else {
-                        int g = addExtra(row, index);
-                        index++;
-                        if (g > largestIndex) {
-                            index++;
-                        }
-                        int b = addExtra(row, index);
-                        index++;
-                        if (b > largestIndex) {
-                            index++;
-                        }
-                        currentColor = Color.rgb(r, g, b, 1);
-
-                    }
-
-
-                    last = currentColor;
-                }
-
-                //canvas.getGraphicsContext2D().setGlobalBlendMode(BlendMode.OVERLAY);
-                for (int i2 = i; i2 < i + 2; i2++) {
-                    for (int j2 = j; j2 < j + 2; j2++) {
-
-                        double r1 = currentColor.getRed();
-                        double g1 = currentColor.getGreen();
-                        double b1 = currentColor.getBlue();
-
-
-                        double x = (brightness[i2][j2] / 255.0) / ((r1 + g1 + b1) / 3);
-
-
-                        int r = Math.max(Math.min((int) ((r1 * x * 255)), 255), 0);
-                        int g = Math.max(Math.min((int) ((g1 * x * 255)), 255), 0);
-                        int b = Math.max(Math.min((int) ((b1 * x * 255)), 255), 0);
-
-
-                        // System.out.println(brightness[i2][j2] + " " + (int)(Color.rgb(r,g,b,1).getBrightness()*255));
-
-
-                        image.getPixelWriter().setColor(i2, j2, Color.rgb(r, g, b, 1));
-                        //image.getPixelWriter().setC
-                    }
-                }
-            }
-        }
-        canvas.getGraphicsContext2D().drawImage(image1, 0, 0);
-        //  canvas.getGraphicsContext2D().setGlobalBlendMode(BlendMode.OVERLAY);
-        canvas.getGraphicsContext2D().drawImage(image, 0, 0);
-        WritableImage image2 = new WritableImage(length, height);
-        return canvas.getGraphicsContext2D().getCanvas().snapshot(null, image2);
-    }
-
-    private static int getDifferenceColorInt(double currentColor, int difference) {
-
-        return Math.max(Math.min((int) (currentColor * 255) - difference, 255), 0);
-    }
-
-    private static ArrayList<String> loadConverted(String fileName) {
-
-
-        FileInputStream inputstream = null;
-        try {
-            inputstream = new FileInputStream(getFolder() +fileName);
-
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        Scanner text = new Scanner(inputstream);
-        ArrayList<String> lines = new ArrayList<>();
-
-
-        while (text.hasNextLine()) {
-            lines.add(text.nextLine());
-
-        }
-
-        text.close();
-
-
-        return lines;
-    }
-
-
-    private static String getDoubleOrSingle(int value) {
-        if (value > largestIndex) {
-            return "!" + reverseCode[value - largestIndex];
-        }
-        return reverseCode[value] + "";
-    }
-
-
-    public static void convertMonochrome(Image image, String name) throws IOException {
-
-        int width = (int) image.getWidth();
-        int height = (int) image.getHeight();
-
-        // dir.mkdir();
-        File imageWidth = new File(getFolder() +name.replace(".", "").replace("jpg", "png") + ".txt");
-        FileWriter writer = new FileWriter(imageWidth);
-        writer.write("monochrome " + (int) image.getWidth() + " " + (int) image.getHeight() + " " + tags + " " + PREVIOUS_STRING + previous + " " + NEXT_STRING + next + "\n");
-
-        String last = "";
-        PixelReader reader = image.getPixelReader();
-
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                int r = (int) ((reader.getColor(i, j).getBrightness() * 255));
-
-
-                String pixel = getDoubleOrSingle(r);
-
-
-                if (last.length() > 0 && last.equals(pixel)) {
-                    writer.write("\"");
-                } else {
-
-                    writer.write(pixel);
-                }
-                last = pixel;
-
-
-            }
-            writer.write("\n");
-        }
-        writer.close();
-    }
-    //System.getProperty("user.dir")+CONNECTOR+directory;
-    public static String getAbsolouteFolder() {
-        return filepath+CONNECTOR+directory;
-    }
-
-    private static String filepath = "";
-//selctedDir+CONNECTOR+directory;
-    public static String getFolder() {
-        return filepath+CONNECTOR+directory;
-    }
-
-    public static void convert(Image image, String name) throws IOException {
-        int width = (int) image.getWidth();
-        int height = (int) image.getHeight();
-
-
-        File imageWidth = new File(getFolder()  +name.replace(".", "").replace("jpg", "png") + ".txt");
-        FileWriter writer = new FileWriter(imageWidth);
-        writer.write("normal " + (int) image.getWidth() + " " + (int) image.getHeight() + " " + tags + " " + PREVIOUS_STRING + previous + " " + NEXT_STRING + next + "\n");
-
-        String last = "";
-        PixelReader reader = image.getPixelReader();
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                int r = (int) (reader.getColor(i, j).getRed() * 255);
-                int g = (int) (reader.getColor(i, j).getGreen() * 255);
-                int b = (int) (reader.getColor(i, j).getBlue() * 255);
-
-
-                String pixel;
-                //String pixel = String.format("%02x%02x%02x", r, g, b);
-                if (r == b && r == g) {
-                    pixel = getDoubleOrSingle(r) + "#";
-                } else {
-                    pixel = getDoubleOrSingle(r) + "" + getDoubleOrSingle(g) + "" + getDoubleOrSingle(b);
-                }
-
-                if (last.length() > 0 && last.equals(pixel)) {
-                    writer.write("\"");
-                } else {
-
-                    writer.write(pixel);
-                }
-                last = pixel;
-
-
-            }
-            writer.write("\n");
-        }
-        writer.close();
-    }
-
-    public static void writeFileText(String name, ArrayList<String> text) throws IOException {
-
-        File imageWidth = new File(getFolder() +name);
-        FileWriter writer = new FileWriter(imageWidth);
-        for (String s : text) {
-            writer.write(s + "\n");
-        }
-
-        writer.close();
-    }
-
-
-    public static void convertHalfColor(Image image, String name, String tags) throws IOException {
-        int factor = 2;
-
-        int width = (int) image.getWidth();
-        int height = (int) image.getHeight();
-        File dir = new File(name);
-
-        File imageWidth = new File(name.replace(".", "").replace("jpg", "png") + ".txt");
-        FileWriter writer = new FileWriter(imageWidth);
-        writer.write("half_color " + (int) image.getWidth() + " " + (int) image.getHeight() + " " + tags + "\n");
-
-        String last = "";
-        String last2 = "";
-        PixelReader reader = image.getPixelReader();
-
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                int m = (int) (((reader.getColor(i, j).getRed() + reader.getColor(i, j).getGreen() + reader.getColor(i, j).getBlue()) / 3.0) * 255);
-
-
-                String pixel = getDoubleOrSingle(m);
-
-
-                if (last.length() > 0 && last.equals(pixel)) {
-                    writer.write("\"");
-                } else {
-
-                    writer.write(pixel);
-                }
-                last = pixel;
-
-
-            }
-
-            writer.write("\n");
-        }
-        for (int i = 0; i < width; i++) {
-            for (int j = 0; j < height; j++) {
-                if (i % factor == 0 && j % factor == 0) {
-                    String pixel2 = "";
-                    //double r1 = (reader.getColor(i,j).getRed());
-                    //  double g1 = (reader.getColor(i,j).getGreen());
-                    //   double b1 = (reader.getColor(i,j).getBlue());
-
-
-                    //  double x = 0.5/((r1+g1+b1)/3);
-
-                    //     int r = Math.max(Math.min((int)(r1*x*255),255), 0);
-                    //  int g = Math.max(Math.min((int)(g1*x*255),255), 0);
-                    //  int b = Math.max(Math.min((int)(b1*x*255),255), 0);
-
-                    int r = (int) ((reader.getColor(i, j).getRed()) * 255);
-                    int g = (int) ((reader.getColor(i, j).getGreen()) * 255);
-                    int b = (int) ((reader.getColor(i, j).getBlue()) * 255);
-
-
-                    if (r == b && r == g) {
-                        pixel2 = getDoubleOrSingle(r) + "#";
-                    } else {
-                        pixel2 = getDoubleOrSingle(r) + "" + getDoubleOrSingle(g) + "" + getDoubleOrSingle(b);
-                    }
-
-                    if (last2.length() > 0 && last2.equals(pixel2)) {
-
-                        writer.write("\"");
-                    } else {
-
-                        writer.write(pixel2);
-
-                    }
-                    last2 = pixel2;
-                }
-
-            }
-            if (i % factor == 0) {
-                writer.write("\n");
-            }
-        }
-
-        writer.close();
-    }
-
-
-    private static void assignHash(String text, Integer value) {
-        code.put(text, value);
-
-        reverseCode[value] = text;
-        System.out.println(text + " " + value);
-
-    }
-
-    private static void assignHashes() {
-        int current = 0;
-        for (int i = 36; i < 127; i++) {
-            assignHash((char) i + "", current);
-            current++;
-
-        }
-        for (int i = 174; i < 256; i++) {
-            assignHash((char) i + "", current);
-            current++;
-
-        }
-
-        // for (int i = 12353; i < 12437; i++) {
-        //      assignHash((char)i+"", current);
-        //      current++;
-
-        //   }
-
-        largestIndex = current - 1;
     }
 
 
